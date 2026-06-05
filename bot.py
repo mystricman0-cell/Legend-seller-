@@ -57,10 +57,336 @@ QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', 'https://files.catbox.moe/91ug40.jpg')
 MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
 MUST_JOIN_CHANNEL_2 = "@II_LEGEND_OTP_SELLER_UPDATES_II"
 # LOG CHANNEL
-LOG_CHANNEL_ID = "-1003659930873"
+LOG_CHANNEL_ID = "-1003912691513"
 
 # Referral commission percentage
 REFERRAL_COMMISSION = 1.7
+
+# ─── Country flag emoji mapping (280+ countries) ──────────────────────────────
+COUNTRY_FLAGS = {
+    "india": "🇮🇳", "indian": "🇮🇳",
+    "russia": "🇷🇺", "russian": "🇷🇺",
+    "usa": "🇺🇸", "united states": "🇺🇸", "america": "🇺🇸", "us": "🇺🇸",
+    "uk": "🇬🇧", "united kingdom": "🇬🇧", "britain": "🇬🇧", "england": "🇬🇧",
+    "china": "🇨🇳", "chinese": "🇨🇳",
+    "germany": "🇩🇪", "german": "🇩🇪",
+    "france": "🇫🇷", "french": "🇫🇷",
+    "japan": "🇯🇵", "japanese": "🇯🇵",
+    "brazil": "🇧🇷", "brazilian": "🇧🇷",
+    "canada": "🇨🇦", "canadian": "🇨🇦",
+    "australia": "🇦🇺", "australian": "🇦🇺",
+    "indonesia": "🇮🇩", "indonesian": "🇮🇩",
+    "pakistan": "🇵🇰", "pakistani": "🇵🇰",
+    "bangladesh": "🇧🇩", "bangladeshi": "🇧🇩",
+    "nigeria": "🇳🇬", "nigerian": "🇳🇬",
+    "mexico": "🇲🇽", "mexican": "🇲🇽",
+    "philippines": "🇵🇭", "filipino": "🇵🇭", "philippine": "🇵🇭",
+    "vietnam": "🇻🇳", "vietnamese": "🇻🇳",
+    "ethiopia": "🇪🇹", "ethiopian": "🇪🇹",
+    "egypt": "🇪🇬", "egyptian": "🇪🇬",
+    "turkey": "🇹🇷", "turkish": "🇹🇷",
+    "iran": "🇮🇷", "iranian": "🇮🇷",
+    "thailand": "🇹🇭", "thai": "🇹🇭",
+    "myanmar": "🇲🇲",
+    "kenya": "🇰🇪", "kenyan": "🇰🇪",
+    "ghana": "🇬🇭", "ghanaian": "🇬🇭",
+    "ukraine": "🇺🇦", "ukrainian": "🇺🇦",
+    "argentina": "🇦🇷", "argentinian": "🇦🇷",
+    "colombia": "🇨🇴", "colombian": "🇨🇴",
+    "algeria": "🇩🇿", "algerian": "🇩🇿",
+    "sudan": "🇸🇩", "sudanese": "🇸🇩",
+    "iraq": "🇮🇶", "iraqi": "🇮🇶",
+    "uganda": "🇺🇬", "ugandan": "🇺🇬",
+    "poland": "🇵🇱", "polish": "🇵🇱",
+    "malaysia": "🇲🇾", "malaysian": "🇲🇾",
+    "peru": "🇵🇪", "peruvian": "🇵🇪",
+    "venezuela": "🇻🇪", "venezuelan": "🇻🇪",
+    "saudi arabia": "🇸🇦", "saudi": "🇸🇦",
+    "afghanistan": "🇦🇫", "afghan": "🇦🇫",
+    "morocco": "🇲🇦", "moroccan": "🇲🇦",
+    "angola": "🇦🇴", "angolan": "🇦🇴",
+    "mozambique": "🇲🇿",
+    "ivory coast": "🇨🇮", "cote d'ivoire": "🇨🇮",
+    "cameroon": "🇨🇲", "cameroonian": "🇨🇲",
+    "niger": "🇳🇪",
+    "mali": "🇲🇱",
+    "burkina faso": "🇧🇫",
+    "malawi": "🇲🇼",
+    "zambia": "🇿🇲",
+    "senegal": "🇸🇳",
+    "zimbabwe": "🇿🇼",
+    "guinea": "🇬🇳",
+    "somalia": "🇸🇴", "somali": "🇸🇴",
+    "rwanda": "🇷🇼",
+    "benin": "🇧🇯",
+    "burundi": "🇧🇮",
+    "tunisia": "🇹🇳", "tunisian": "🇹🇳",
+    "south africa": "🇿🇦",
+    "tajikistan": "🇹🇯",
+    "kyrgyzstan": "🇰🇬",
+    "turkmenistan": "🇹🇲",
+    "uzbekistan": "🇺🇿",
+    "kazakhstan": "🇰🇿",
+    "hong kong": "🇭🇰",
+    "taiwan": "🇹🇼",
+    "south korea": "🇰🇷", "korea": "🇰🇷",
+    "north korea": "🇰🇵",
+    "israel": "🇮🇱",
+    "spain": "🇪🇸", "spanish": "🇪🇸",
+    "italy": "🇮🇹", "italian": "🇮🇹",
+    "netherlands": "🇳🇱", "dutch": "🇳🇱",
+    "portugal": "🇵🇹", "portuguese": "🇵🇹",
+    "sweden": "🇸🇪", "swedish": "🇸🇪",
+    "norway": "🇳🇴", "norwegian": "🇳🇴",
+    "denmark": "🇩🇰", "danish": "🇩🇰",
+    "finland": "🇫🇮", "finnish": "🇫🇮",
+    "belgium": "🇧🇪", "belgian": "🇧🇪",
+    "switzerland": "🇨🇭", "swiss": "🇨🇭",
+    "austria": "🇦🇹", "austrian": "🇦🇹",
+    "czechia": "🇨🇿", "czech republic": "🇨🇿", "czech": "🇨🇿",
+    "slovakia": "🇸🇰",
+    "hungary": "🇭🇺", "hungarian": "🇭🇺",
+    "romania": "🇷🇴", "romanian": "🇷🇴",
+    "bulgaria": "🇧🇬", "bulgarian": "🇧🇬",
+    "croatia": "🇭🇷",
+    "serbia": "🇷🇸",
+    "greece": "🇬🇷", "greek": "🇬🇷",
+    "new zealand": "🇳🇿",
+    "sri lanka": "🇱🇰",
+    "nepal": "🇳🇵", "nepali": "🇳🇵",
+    "cambodia": "🇰🇭",
+    "laos": "🇱🇦",
+    "mongolia": "🇲🇳",
+    "singapore": "🇸🇬",
+    "maldives": "🇲🇻",
+    "bhutan": "🇧🇹",
+    "qatar": "🇶🇦",
+    "kuwait": "🇰🇼",
+    "bahrain": "🇧🇭",
+    "uae": "🇦🇪", "united arab emirates": "🇦🇪", "dubai": "🇦🇪",
+    "jordan": "🇯🇴",
+    "lebanon": "🇱🇧",
+    "syria": "🇸🇾",
+    "armenia": "🇦🇲",
+    "azerbaijan": "🇦🇿",
+    "georgia": "🇬🇪",
+    "belarus": "🇧🇾",
+    "moldova": "🇲🇩",
+    "latvia": "🇱🇻",
+    "lithuania": "🇱🇹",
+    "estonia": "🇪🇪",
+    "chile": "🇨🇱",
+    "ecuador": "🇪🇨",
+    "bolivia": "🇧🇴",
+    "paraguay": "🇵🇾",
+    "uruguay": "🇺🇾",
+    "cuba": "🇨🇺",
+    "dominican republic": "🇩🇴",
+    "haiti": "🇭🇹",
+    "guatemala": "🇬🇹",
+    "honduras": "🇭🇳",
+    "el salvador": "🇸🇻",
+    "nicaragua": "🇳🇮",
+    "costa rica": "🇨🇷",
+    "panama": "🇵🇦",
+    "jamaica": "🇯🇲",
+    "trinidad": "🇹🇹", "trinidad and tobago": "🇹🇹",
+    "madagascar": "🇲🇬",
+    "tanzania": "🇹🇿",
+    "drc": "🇨🇩", "congo": "🇨🇬",
+    "eritrea": "🇪🇷",
+    "djibouti": "🇩🇯",
+    "liberia": "🇱🇷",
+    "sierra leone": "🇸🇱",
+    "gambia": "🇬🇲",
+    "togo": "🇹🇬",
+    "central african republic": "🇨🇫",
+    "south sudan": "🇸🇸",
+    "gabon": "🇬🇦",
+    "equatorial guinea": "🇬🇶",
+    "comoros": "🇰🇲",
+    "seychelles": "🇸🇨",
+    "mauritius": "🇲🇺",
+    "libya": "🇱🇾",
+    "namibia": "🇳🇦",
+    "botswana": "🇧🇼",
+    "lesotho": "🇱🇸",
+    "eswatini": "🇸🇿", "swaziland": "🇸🇿",
+    "oman": "🇴🇲",
+    "yemen": "🇾🇪",
+    "timor": "🇹🇱",
+    "brunei": "🇧🇳",
+    "fiji": "🇫🇯",
+    "albania": "🇦🇱",
+    "north macedonia": "🇲🇰",
+    "bosnia": "🇧🇦",
+    "kosovo": "🇽🇰",
+    "montenegro": "🇲🇪",
+    "slovenia": "🇸🇮",
+    "iceland": "🇮🇸",
+    "ireland": "🇮🇪",
+    "luxembourg": "🇱🇺",
+    "malta": "🇲🇹",
+    "cyprus": "🇨🇾",
+    "puerto rico": "🇵🇷",
+    "cape verde": "🇨🇻",
+    "guyana": "🇬🇾",
+    "suriname": "🇸🇷",
+    "belize": "🇧🇿",
+    "bahamas": "🇧🇸",
+    "barbados": "🇧🇧",
+    "grenada": "🇬🇩",
+    "saint lucia": "🇱🇨",
+    "saint vincent": "🇻🇨",
+    "antigua": "🇦🇬",
+    "dominica": "🇩🇲",
+    "saint kitts": "🇰🇳",
+    "fiji": "🇫🇯",
+    "vanuatu": "🇻🇺",
+    "samoa": "🇼🇸",
+    "tonga": "🇹🇴",
+    "kiribati": "🇰🇮",
+    "micronesia": "🇫🇲",
+    "palau": "🇵🇼",
+    "nauru": "🇳🇷",
+    "tuvalu": "🇹🇻",
+    "marshall islands": "🇲🇭",
+    "solomon islands": "🇸🇧",
+    "papua new guinea": "🇵🇬",
+}
+
+def get_country_flag(country_name: str) -> str:
+    """Auto-detect country flag from name"""
+    lower = country_name.lower().strip()
+    for key, flag in COUNTRY_FLAGS.items():
+        if key in lower or lower in key:
+            return flag
+    return "🌍"
+
+# ─── Railway / Uptime Heartbeat ────────────────────────────────────────────────
+RAILWAY_HEARTBEAT_URL = os.getenv("RAILWAY_STATIC_URL", "")
+
+def _heartbeat_loop():
+    """Keep Railway/Koyeb alive by pinging self every 4 minutes"""
+    import urllib.request
+    while True:
+        try:
+            time.sleep(240)
+            target = RAILWAY_HEARTBEAT_URL or f"http://localhost:{os.getenv('PORT', 8080)}/"
+            urllib.request.urlopen(target, timeout=10)
+            logger.info("💓 Heartbeat OK")
+        except Exception as e:
+            logger.debug(f"Heartbeat: {e}")
+
+threading.Thread(target=_heartbeat_loop, daemon=True).start()
+
+# ─── Security: Rate Limiter + Honeypot ────────────────────────────────────────
+_rate_tracker: dict = {}       # {user_id: [timestamps]}
+_honeypot_strikes: dict = {}   # {user_id: strike_count}
+_blocked_users: set = set()    # temporary in-memory block
+
+RATE_LIMIT_COUNT = 15          # max messages
+RATE_LIMIT_WINDOW = 60         # per seconds
+HONEYPOT_COMMANDS = {
+    "/admin", "/panel", "/root", "/hack", "/exploit", "/shell",
+    "/exec", "/cmd", "/backdoor", "/bypass", "/getid", "/dbdump",
+}
+
+def _is_rate_limited(user_id: int) -> bool:
+    """Return True if user exceeds rate limit"""
+    now = time.time()
+    times = _rate_tracker.get(user_id, [])
+    times = [t for t in times if now - t < RATE_LIMIT_WINDOW]
+    times.append(now)
+    _rate_tracker[user_id] = times
+    return len(times) > RATE_LIMIT_COUNT
+
+def _check_honeypot(user_id: int, text: str) -> bool:
+    """Return True if honeypot triggered (should block)"""
+    if not text:
+        return False
+    lower = text.strip().lower().split()[0] if text.strip() else ""
+    if lower in HONEYPOT_COMMANDS:
+        strikes = _honeypot_strikes.get(user_id, 0) + 1
+        _honeypot_strikes[user_id] = strikes
+        logger.warning(f"🍯 Honeypot triggered by {user_id}: '{text}' (strikes={strikes})")
+        if strikes >= 3:
+            _blocked_users.add(user_id)
+            logger.warning(f"🚫 User {user_id} auto-blocked after {strikes} honeypot strikes")
+        return True
+    return False
+
+def _is_security_blocked(user_id: int) -> bool:
+    return user_id in _blocked_users
+
+# ─── Premium Start Animation ──────────────────────────────────────────────────
+
+def _send_premium_animation(chat_id: int, user_id: int, user_name: str = ""):
+    """Send tiered premium start animation based on role"""
+    try:
+        if is_super_admin(user_id):
+            # OWNER animation
+            frame1 = (
+                "♔ <b>OWNER ACCESS DETECTED</b> ♔\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚡ <code>Initializing exclusive access...</code>"
+            )
+            frame2 = (
+                "♔ <b>LEGENDARY OTP BOT — OWNER</b> ♔\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "🌟 Welcome back, <b>Legend</b>!\n"
+                "🔐 Full system access granted\n"
+                "👑 All powers unlocked\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "✨ <i>The empire is yours to command</i>"
+            )
+        elif is_admin(user_id):
+            # ADMIN animation
+            frame1 = (
+                "🛡 <b>ADMIN ACCESS GRANTED</b> 🛡\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚙️ <code>Loading admin dashboard...</code>"
+            )
+            frame2 = (
+                "🛡 <b>LEGENDARY OTP BOT — ADMIN</b> 🛡\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                f"⚡ Welcome, <b>{user_name or 'Admin'}</b>!\n"
+                "🔑 Admin privileges active\n"
+                "📊 Panel ready for use\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "💼 <i>Ready to manage the system</i>"
+            )
+        else:
+            # USER animation
+            frame1 = (
+                "🔥 <b>LEGENDARY OTP SELLER</b> 🔥\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚡ <code>Loading premium experience...</code>"
+            )
+            frame2 = (
+                "💎 <b>LEGENDARY OTP SELLER BOT</b> 💎\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                f"✨ Welcome, <b>{user_name or 'User'}</b>!\n"
+                "🌍 180+ Countries Available\n"
+                "⚡ Instant OTP Delivery\n"
+                "💳 Easy Recharge & Purchase\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "🚀 <i>Premium Telegram Account Service</i>"
+            )
+
+        anim_msg = bot.send_message(chat_id, frame1, parse_mode="HTML")
+        time.sleep(1.2)
+        try:
+            bot.edit_message_text(frame2, chat_id, anim_msg.message_id, parse_mode="HTML")
+        except:
+            pass
+        time.sleep(0.8)
+        try:
+            bot.delete_message(chat_id, anim_msg.message_id)
+        except:
+            pass
+    except Exception as e:
+        logger.debug(f"Animation error (non-critical): {e}")
 
 # Global API Credentials for Pyrogram Login
 GLOBAL_API_ID = 37751241
@@ -141,7 +467,7 @@ except ImportError as e:
 
 # Import logging module
 try:
-    from logs import init_logger, log_purchase_async, log_otp_received_async, log_recharge_approved_async
+    from logs import init_logger, log_purchase_async, log_otp_received_async, log_recharge_approved_async, log_recharge_rejected_async
     init_logger(BOT_TOKEN, LOG_CHANNEL_ID)
     logger.info(f"✅ Telegram logger initialized for channel: {LOG_CHANNEL_ID}")
 except ImportError as e:
@@ -990,13 +1316,25 @@ def process_recharge_approval(admin_id, req_id, action):
                 }}
             )
             
+            # Log rejection
+            try:
+                from logs import log_recharge_rejected_async
+                log_recharge_rejected_async(
+                    user_id=user_target,
+                    amount=amount,
+                    method=req.get("method", "UPI"),
+                    utr=req.get("utr")
+                )
+            except:
+                pass
+
             # Mark this rejection in tracking
             recharge_approvals[approval_key] = {
                 "admin_id": admin_id,
                 "admin_name": admin_name,
                 "timestamp": datetime.utcnow()
             }
-            
+
             return True, f"❌ Recharge rejected by {admin_name}", {
                 "admin_name": admin_name,
                 "admin_id": admin_id,
@@ -1226,6 +1564,19 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 pass
     
     ensure_user_exists(user_id, msg.from_user.first_name, msg.from_user.username, referred_by)
+
+    # Security check
+    if _is_security_blocked(user_id):
+        return
+
+    # Premium animation in background thread (non-blocking)
+    threading.Thread(
+        target=_send_premium_animation,
+        args=(user_id, user_id, msg.from_user.first_name or ""),
+        daemon=True
+    ).start()
+
+    time.sleep(2.2)
     clean_ui_and_send_menu(user_id, user_id)
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -2714,19 +3065,21 @@ def get_latest_otp(user_id, session_id, chat_id, callback_id):
             except:
                 pass
         
-        message = f"✅ **Latest OTP**\n\n"
-        message += f"📱 Phone: `{session_data.get('phone', 'N/A')}`\n"
-        message += f"🔢 OTP Code: `{otp_code}`\n"
-        if two_step_password:
-            message += f"🔐 2FA Password: `{two_step_password}`\n"
-        elif account and account.get("two_step_password"):
-            message += f"🔐 2FA Password: `{account.get('two_step_password')}`\n"
+        # Build OTP message with tap-to-copy format
+        fa_password = two_step_password or (account.get("two_step_password", "") if account else "")
+
+        message = "✅ <b>Latest OTP Received!</b>\n\n"
+        message += f"📱 Phone: <code>{session_data.get('phone', 'N/A')}</code>\n"
+        message += f"🔢 OTP Code: <code>{otp_code}</code>\n"
+        if fa_password:
+            message += f"🔐 2FA Password: <code>{fa_password}</code>\n"
         message += f"\n⏰ Time: {datetime.utcnow().strftime('%H:%M:%S')}"
-        message += f"\n\nEnter this code in Telegram X app."
-        
+        message += "\n\n<i>💡 Tap any value above to copy it instantly!</i>"
+        message += "\n\n📲 Open Telegram X → enter phone → enter OTP above."
+
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
-            InlineKeyboardButton("🔄 Get OTP Again", callback_data=f"get_otp_{session_id}"),
+            InlineKeyboardButton("🔄 Refresh OTP", callback_data=f"get_otp_{session_id}"),
             InlineKeyboardButton("🚪 Logout", callback_data=f"logout_session_{session_id}")
         )
         
@@ -2735,19 +3088,19 @@ def get_latest_otp(user_id, session_id, chat_id, callback_id):
                 message,
                 chat_id,
                 callback_id.message.message_id,
-                parse_mode="Markdown",
+                parse_mode="HTML",
                 reply_markup=markup
             )
         except:
             sent_msg = bot.send_message(
                 chat_id,
                 message,
-                parse_mode="Markdown",
+                parse_mode="HTML",
                 reply_markup=markup
             )
             user_last_message[user_id] = sent_msg.message_id
-        
-        bot.answer_callback_query(callback_id, "✅ Latest OTP fetched!", show_alert=False)
+
+        bot.answer_callback_query(callback_id, "✅ OTP fetched! Tap code to copy.", show_alert=False)
     except Exception as e:
         logger.error(f"Get OTP error: {e}")
         bot.answer_callback_query(callback_id, "❌ Error getting OTP", show_alert=True)
@@ -3529,8 +3882,8 @@ def handle_login_flow_messages(msg):
         phone = msg.text.strip()
         if not phone.startswith('+'):
             phone = '+' + phone
-        if len(phone) < 7:
-            bot.send_message(chat_id, "❌ Invalid phone number. Please enter with country code:\nExample: +919876543210 or +79123456789")
+        if len(phone) < 6:
+            bot.send_message(chat_id, "❌ Invalid phone number. Enter with country code:\nExample: +919876543210 or +86XXXXXXXXXX or +7XXXXXXXXXX")
             return
         
         if not account_manager:
@@ -3584,8 +3937,8 @@ def handle_login_flow_messages(msg):
     
     elif step == "waiting_otp":
         otp = msg.text.strip()
-        if not otp.isdigit() or len(otp) != 5:
-            bot.send_message(chat_id, "❌ Invalid OTP format. Please enter 5-digit OTP:")
+        if not otp.isdigit() or not (4 <= len(otp) <= 8):
+            bot.send_message(chat_id, "❌ Invalid OTP format. Enter OTP (4-8 digits):")
             return
         
         if not account_manager:
@@ -3915,21 +4268,26 @@ def ask_country_price(message):
         user_data = user_states.get(message.chat.id)
         country_name = user_data.get("country_name")
         
+        flag = get_country_flag(country_name)
+        display_name = f"{flag} {country_name}"
+
         country_data = {
-            "name": country_name,
+            "name": display_name,
             "price": price,
             "status": "active",
             "created_at": datetime.utcnow(),
-            "created_by": message.from_user.id
+            "created_by": message.from_user.id,
+            "flag": flag
         }
         countries_col.insert_one(country_data)
-        
+
         del user_states[message.chat.id]
         bot.send_message(
             message.chat.id,
             f"✅ **Country Added Successfully!**\n\n"
-            f"🌍 Country: {country_name}\n"
-            f"💰 Price: {format_currency(price)}\n\n"
+            f"{flag} Country: {country_name}\n"
+            f"💰 Price: {format_currency(price)}\n"
+            f"🏷 Saved as: {display_name}\n\n"
             f"Country is now available for users to purchase accounts."
         )
         show_country_management(message.chat.id)
@@ -4191,12 +4549,22 @@ def broadcast_worker(source_msg, pin_silent, pin_loud, send_to_users, admin_chat
         all_chats = []
         chat_ids = set()
         
-        # 1. Get all users (negative IDs are groups)
+        # 1. Get all users (including admins — they should also receive broadcast)
         all_users = list(users_col.find())
         for user in all_users:
             uid = user.get("user_id")
-            if uid and uid != ADMIN_ID and uid != admin_id:
+            if uid:
                 chat_ids.add(uid)
+
+        # Also include all registered admins
+        try:
+            all_admins = list(admins_col.find())
+            for adm in all_admins:
+                aid = adm.get("user_id")
+                if aid:
+                    chat_ids.add(aid)
+        except:
+            pass
         
         # 2. Get all served chats if collection exists
         try:
@@ -4211,9 +4579,9 @@ def broadcast_worker(source_msg, pin_silent, pin_loud, send_to_users, admin_chat
         
         all_chats = list(chat_ids)
         
-        # Separate groups and users
+        # Separate groups and users (admins are also included in users now)
         groups = [cid for cid in all_chats if str(cid).startswith('-')]
-        users = [cid for cid in all_chats if not str(cid).startswith('-') and cid != ADMIN_ID and cid != admin_id]
+        users = [cid for cid in all_chats if not str(cid).startswith('-')]
         
         # Update status
         bot.edit_message_text(
@@ -4695,20 +5063,32 @@ def restart_bot(message):
 @bot.message_handler(func=lambda m: True, content_types=['text','photo','video','document'])
 def chat_handler(msg):
     user_id = msg.from_user.id
-    
+
+    # ── Security gate ──────────────────────────────────────────────
+    if _is_security_blocked(user_id):
+        return
+    if not is_admin(user_id):
+        if _check_honeypot(user_id, msg.text or ""):
+            bot.send_message(msg.chat.id, "⚠️ Invalid command.", parse_mode=None)
+            return
+        if _is_rate_limited(user_id):
+            bot.send_message(msg.chat.id, "🚦 Too many messages. Please slow down.")
+            return
+    # ───────────────────────────────────────────────────────────────
+
     # Check if user is in admin add flow
     if user_id in admin_add_state:
         handle_add_admin_userid(msg)
         return
-    
+
     # Check if user is in admin remove flow
     if user_id in admin_remove_state:
         handle_remove_admin_userid(msg)
         return
-    
+
     if is_admin(user_id) and user_id in admin_deduct_state:
         pass
-    
+
     if is_user_banned(user_id):
         return
     
