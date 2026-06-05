@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class TelegramLogger:
     """Sends logs to Telegram channel"""
     
-    def __init__(self, bot_token: str, log_channel_id: str, support_link: str = "https://t.me", buy_link: str = "https://t.me/T "):
+    def __init__(self, bot_token: str, log_channel_id: str, support_link: str = "https://t.me/rchiex", buy_link: str = "http://t.me/LEGENDARY_OTP_SELLER_Bot"):
         """
         Initialize Telegram logger
         
@@ -144,8 +144,9 @@ class TelegramLogger:
             f"<b>✚ Number:</b> {formatted_phone}📞\n"
             f"<b>✚ User:</b> {formatted_user}👤\n"
             f"<b>✚ Status:</b> Verified & Delivered ✅\n\n"
-            f"<b>🤖 @TmOtpSell_bot</b>\n"
-        )
+            f"<b>🤖 @LEGENDARY_OTP_SELLER_Bot</b>\n"
+        
+    )
         
         return self.send_log(message)
     
@@ -198,7 +199,7 @@ class TelegramLogger:
             f"<b>━ OTP:</b> <code>{otp_code}</code>💬\n"
             f"<b>━ User:</b> {formatted_user}👤\n"
             f"<b>━ Status:</b> OTP Delivered ✅\n\n"
-            f"<b> 🤖 @TmOtpSell_bot</b>\n"
+            f"<b> 🤖 @LEGENDARY_OTP_SELLER_Bot</b>\n"
         )
         
         return self.send_log(message)
@@ -304,7 +305,7 @@ class TelegramLogger:
 # Create global instance
 telegram_logger = None
 
-def init_logger(bot_token: str, log_channel_id: str, support_link: str = "https://t.me/TmStocks_Support", buy_link: str = "https://t.me/TmOtpSell_bot"):
+def init_logger(bot_token: str, log_channel_id: str, support_link: str = "https://t.me/rchiex", buy_link: str = "https://t.me/LEGENDARY_OTP_SELLER_Bot"):
     """Initialize the global telegram logger"""
     global telegram_logger
     telegram_logger = TelegramLogger(bot_token, log_channel_id, support_link, buy_link)
