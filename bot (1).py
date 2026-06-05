@@ -43,28 +43,28 @@ from pyrogram.errors import (
 # CONFIG
 # ---------------------------------------------------------------------
 
-BOT_TOKEN = os.getenv('BOT_TOKEN', '8588199256:AAGUjtP_MvXCUGctOoBfMX1-eG2nV3ATCwY')
-ADMIN_ID = int(os.getenv('ADMIN_ID', '8441236350'))
-MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://bsdk:betichod@cluster0.fgj1r9z.mongodb.net/?retryWrites=true&w=majority')
-API_ID = int(os.getenv('API_ID', '36326629'))
-API_HASH = os.getenv('API_HASH', '823e6e8c081fe363e6d739b39dc19e07')
+BOT_TOKEN = os.getenv('BOT_TOKEN', '8648853185:AAFPkoJ2ZC19Kbvw2hnsnt5W6GglRNwW7Kk')
+ADMIN_ID = int(os.getenv('ADMIN_ID', '8358951104'))
+MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://dhruvkumarray3_db_user:Sc1nt6kCkoEuTzW3@cluster0.rgwrfli.mongodb.net/?appName=Cluster0')
+API_ID = int(os.getenv('API_ID', '37751241'))
+API_HASH = os.getenv('API_HASH', '2e90f273e745d4c080fdfab24fa98494')
 
 # UPI PAYMENT CONFIG
-UPI_ID = os.getenv('UPI_ID', 'shubh412@fam')
-QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', 'https://files.catbox.moe/0mkr56.jpeg')
+UPI_ID = os.getenv('UPI_ID', 'rishabhkumarray@fam')
+QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', 'https://files.catbox.moe/91ug40.jpg')
 
 # MUST JOIN CHANNELS - TWO CHANNELS
-MUST_JOIN_CHANNEL_1 = "@GMS_COMEBACK_SOON1"
-MUST_JOIN_CHANNEL_2 = "@ID_GMS_SELLER_bot"
+MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
+MUST_JOIN_CHANNEL_2 = "@II_LEGEND_OTP_SELLER_UPDATES_II"
 # LOG CHANNEL
-LOG_CHANNEL_ID = "-1003802534246"
+LOG_CHANNEL_ID = "-1003659930873"
 
 # Referral commission percentage
-REFERRAL_COMMISSION = 1.5
+REFERRAL_COMMISSION = 1.7
 
 # Global API Credentials for Pyrogram Login
-GLOBAL_API_ID = 36326629
-GLOBAL_API_HASH = "823e6e8c081fe363e6d739b39dc19e07"
+GLOBAL_API_ID = 37751241
+GLOBAL_API_HASH = "2e90f273e745d4c080fdfab24fa98494"
 
 # ---------------------------------------------------------------------
 # INIT
@@ -229,8 +229,8 @@ def add_admin(user_id, added_by):
         
         # Count current admins (excluding super admin if counting separately)
         admin_count = admins_col.count_documents({})
-        if admin_count >= 5:
-            return False, "Maximum 5 admins reached"
+        if admin_count >= 7:
+            return False, "Maximum 7 admins reached"
         
         # Add new admin
         admin_data = {
@@ -445,7 +445,7 @@ def handle_add_admin_userid(msg):
         if is_admin(target_user_id):
             bot.reply_to(
                 msg,
-                f"⚠️ User `{target_user_id}` already admin hai!",
+                f"⚠️ User `{target_user_id}` Already admin hai!",
                 parse_mode="Markdown"
             )
             del admin_add_state[user_id]
@@ -474,7 +474,7 @@ def handle_add_admin_userid(msg):
                 f"✅ **Admin Added Successfully!**\n\n"
                 f"👤 User ID: `{target_user_id}`\n"
                 f"👤 Name: {user.get('name', 'Unknown')}\n"
-                f"📊 Total Admins: {new_count + 1}/6 (Main Admin + {new_count})\n\n"
+                f"📊 Total Admins: {new_count + 1}/7 (Main Admin + {new_count})\n\n"
                 f"Ab ye admin panel access kar sakte hain!",
                 parse_mode="Markdown"
             )
@@ -1054,7 +1054,7 @@ def clean_ui_and_send_menu(chat_id, user_id, text=None, markup=None):
         
         # Main menu caption with expandable blockquotes
         caption = (
-            "🥂 <b>Welcome To Otp Bot By Adi</b> 🥂\n"
+            "🥂 <b>Welcome To Otp Bot By ♔ MR √ Darklord$🇮🇳 ☂</b> 🥂\n"
             "<blockquote expandable>\n"
             "- Automatic OTPs 📍\n"
             "- Easy to Use 🥂🥂\n"
@@ -1066,7 +1066,7 @@ def clean_ui_and_send_menu(chat_id, user_id, text=None, markup=None):
             "1️⃣ Recharge\n"
             "2️⃣ Select Country\n"
             "3️⃣ Buy Account\n"
-            "4️⃣ Get Number & Login through Telegram / Telegram X / Tarbotel\n"
+            "4️⃣ Get Number & Login through Telegram / Telegram X / Turbotel\n"
             "5️⃣ Receive OTP & You're Done ✅\n"
             "</blockquote>\n"
             "🚀 <b>Enjoy Fast Account Buying Experience!</b>"
@@ -1578,7 +1578,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 start(call.message)
                 return
             
-            msg_text = "🛠️ Support: @k4un_hu_mai"
+            msg_text = "🛠️ Support: @rchiex"
             markup = InlineKeyboardMarkup()
             markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_menu"))
             
@@ -4024,7 +4024,7 @@ def ask_ban_user(message):
                 user_id_to_ban,
                 "🚫 **Your Account Has Been Banned**\n\n"
                 "You have been banned from using this bot.\n"
-                "Contact admin @DHRUV_PAPAHERE if you believe this is a mistake."
+                "Contact admin @rchiex if you believe this is a mistake."
             )
         except:
             pass
@@ -4866,7 +4866,7 @@ def health():
 # ---------------------------------------------------------------------
 
 if __name__ == "__main__":
-    logger.info(f"🤖 GMS OTP Bot Starting (Webhook Mode)...")
+    logger.info(f"🤖 Legendary OTP Bot Starting (Webhook Mode)...")
     logger.info(f"Admin ID: {ADMIN_ID}")
     logger.info(f"Bot Token: {BOT_TOKEN[:10]}...")
     logger.info(f"Must Join Channel 1: {MUST_JOIN_CHANNEL_1}")
