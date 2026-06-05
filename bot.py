@@ -43,11 +43,11 @@ from pyrogram.errors import (
 # CONFIG
 # ---------------------------------------------------------------------
 
-BOT_TOKEN = os.getenv('BOT_TOKEN', '8648853185:AAFPkoJ2ZC19Kbvw2hnsnt5W6GglRNwW7Kk')
-ADMIN_ID = int(os.getenv('ADMIN_ID', '8358951104'))
-MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://dhruvkumarray3_db_user:Sc1nt6kCkoEuTzW3@cluster0.rgwrfli.mongodb.net/?appName=Cluster0')
-API_ID = int(os.getenv('API_ID', '37751241'))
-API_HASH = os.getenv('API_HASH', '2e90f273e745d4c080fdfab24fa98494')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+ADMIN_ID = int(os.getenv('ADMIN_ID', '0'))
+MONGO_URL = os.getenv('MONGO_URL')
+API_ID = int(os.getenv('API_ID', '0'))
+API_HASH = os.getenv('API_HASH')
 
 # UPI / FAMPAY CONFIG
 UPI_ID = os.getenv('UPI_ID', '')
