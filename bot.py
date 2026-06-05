@@ -452,6 +452,8 @@ edit_price_state = {}
 coupon_state = {}
 recharge_method_state = {}
 upi_payment_states = {}
+fampay_auto_states = {}       # UTR/screenshot formality for FamPay Auto
+fampay_approved_orders = set() # Orders already credited (prevent double-credit)
 admin_add_state = {}  # For /addadmin flow
 admin_remove_state = {}  # For /removeadmin flow
 
@@ -1663,14 +1665,8 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
     if _is_security_blocked(user_id):
         return
 
-    # Premium animation in background thread (non-blocking)
-    threading.Thread(
-        target=_send_premium_animation,
-        args=(user_id, user_id, msg.from_user.first_name or ""),
-        daemon=True
-    ).start()
-
-    time.sleep(2.2)
+    # Animation runs first, THEN menu (sequential — no background thread)
+    _send_premium_animation(user_id, user_id, msg.from_user.first_name or "")
     clean_ui_and_send_menu(user_id, user_id)
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -3674,10 +3670,9 @@ def show_recharge_methods(chat_id, message_id, user_id):
     )
 
     markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(InlineKeyboardButton("💳 UPI (Manual)", callback_data="recharge_upi"))
     if FAMPAY_API_KEY and FAMPAY_BASE_URL:
-        markup.add(InlineKeyboardButton("⚡ FamPay (Auto-Pay)", callback_data="recharge_fampay_auto"))
-    markup.add(InlineKeyboardButton("💜 FamPay (Manual)", callback_data="recharge_fampay_manual"))
+        markup.add(InlineKeyboardButton("⚡ FamPay Auto-Pay (QR)", callback_data="recharge_fampay_auto"))
+    markup.add(InlineKeyboardButton("💳 UPI Manual (FamPay)", callback_data="recharge_upi"))
     markup.add(InlineKeyboardButton("💎 Crypto (USDT)", callback_data="recharge_crypto"))
     markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_menu"))
 
@@ -3716,63 +3711,77 @@ def fampay_verify_payment(order_id: str):
         logger.error(f"FamPay verify error: {e}")
         return None
 
+def fampay_credit_and_notify(chat_id: int, user_id: int, order_id: str, amount: float, utr: str = ""):
+    """Credit balance and notify user — called by both poll and UTR handler"""
+    if order_id in fampay_approved_orders:
+        return  # Already credited, skip
+    fampay_approved_orders.add(order_id)
+    # Clear state
+    fampay_auto_states.pop(user_id, None)
+    add_balance(user_id, amount)
+    recharges_col.insert_one({
+        "req_id": f"FP_{order_id}",
+        "user_id": user_id,
+        "amount": amount,
+        "method": "FamPay Auto",
+        "status": "approved",
+        "order_id": order_id,
+        "utr": utr or order_id,
+        "created_at": datetime.utcnow(),
+        "processed_at": datetime.utcnow(),
+        "auto_approved": True
+    })
+    new_bal = get_balance(user_id)
+    try:
+        bot.send_message(
+            chat_id,
+            f"✅ <b>Payment Confirmed!</b>\n\n"
+            f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+            f"🔢 <b>UTR:</b> <code>{utr or order_id}</code>\n"
+            f"💳 <b>New Balance:</b> {format_currency(new_bal)}\n\n"
+            f"🎉 Wallet credited instantly!",
+            parse_mode="HTML"
+        )
+    except:
+        pass
+    try:
+        log_recharge_approved_async(user_id=user_id, amount=amount, method="FamPay Auto", utr=utr or order_id)
+    except:
+        pass
+
 def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float, timeout_secs: int = 300):
-    """Background thread: poll FamPay until paid or expired"""
+    """Background thread: poll FamPay API until paid or expired (backup to UTR flow)"""
     deadline = time.time() + timeout_secs
     while time.time() < deadline:
         time.sleep(8)
+        if order_id in fampay_approved_orders:
+            return  # Already credited via UTR flow
         result = fampay_verify_payment(order_id)
         if not result:
             continue
         status = result.get("status", "")
         if status == "success":
-            add_balance(user_id, amount)
-            recharges_col.insert_one({
-                "req_id": f"FP_{order_id}",
-                "user_id": user_id,
-                "amount": amount,
-                "method": "FamPay Auto",
-                "status": "approved",
-                "order_id": order_id,
-                "created_at": datetime.utcnow(),
-                "processed_at": datetime.utcnow(),
-                "auto_approved": True
-            })
-            new_bal = get_balance(user_id)
-            try:
-                bot.send_message(
-                    chat_id,
-                    f"✅ <b>FamPay Payment Confirmed!</b>\n\n"
-                    f"💰 <b>Amount:</b> {format_currency(amount)}\n"
-                    f"🆔 <b>Order:</b> <code>{order_id}</code>\n"
-                    f"💳 <b>New Balance:</b> {format_currency(new_bal)}\n\n"
-                    f"🎉 Auto-credited to your wallet!",
-                    parse_mode="HTML"
-                )
-            except:
-                pass
-            try:
-                log_recharge_approved_async(user_id=user_id, amount=amount, method="FamPay Auto", utr=order_id)
-            except:
-                pass
+            fampay_credit_and_notify(chat_id, user_id, order_id, amount)
             return
         elif status == "expired":
-            try:
-                bot.send_message(chat_id, "⏰ <b>FamPay QR Expired!</b>\nPlease try again.", parse_mode="HTML")
-            except:
-                pass
+            if order_id not in fampay_approved_orders:
+                try:
+                    bot.send_message(chat_id, "⏰ <b>FamPay QR Expired!</b>\nPlease try again.", parse_mode="HTML")
+                except:
+                    pass
             return
-    try:
-        bot.send_message(chat_id, "⏰ <b>Payment timeout!</b>\nQR expired. Please recharge again.", parse_mode="HTML")
-    except:
-        pass
+    if order_id not in fampay_approved_orders:
+        try:
+            bot.send_message(chat_id, "⏰ <b>Payment timeout!</b>\nQR expired. Please recharge again.", parse_mode="HTML")
+        except:
+            pass
 
 # ---------------------------------------------------------------------
 # FAMPAY AUTO-PAY AMOUNT HANDLER
 # ---------------------------------------------------------------------
 
 def process_fampay_auto_amount(msg):
-    """Handle amount input for FamPay Auto-Pay — generate QR and start polling"""
+    """Handle amount input for FamPay Auto-Pay — animated QR gen, then ask UTR as formality"""
     try:
         amount = float(msg.text.strip())
         if amount < 1:
@@ -3780,11 +3789,37 @@ def process_fampay_auto_amount(msg):
             bot.register_next_step_handler(msg, process_fampay_auto_amount)
             return
         user_id = msg.from_user.id
-        bot.send_message(msg.chat.id, "⏳ <b>Generating FamPay QR...</b>", parse_mode="HTML")
+
+        # ----- Animated "Generating QR" steps -----
+        gen_msg = bot.send_message(
+            msg.chat.id,
+            "⚙️ <b>SYSTEM ACTIVATING</b> ⚙️\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔗 <code>Connecting to FamPay...</code>",
+            parse_mode="HTML"
+        )
+        time.sleep(0.9)
+        try:
+            bot.edit_message_text(
+                "⚡ <b>GENERATING QR</b> ⚡\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "💳 <code>Creating payment link...</code>",
+                msg.chat.id, gen_msg.message_id, parse_mode="HTML"
+            )
+        except: pass
+        time.sleep(0.8)
+
         data = fampay_generate_qr(amount)
+
+        # Auto-delete the generating animation
+        try:
+            bot.delete_message(msg.chat.id, gen_msg.message_id)
+        except: pass
+
         if not data or not data.get("order_id"):
             bot.send_message(msg.chat.id, "❌ Failed to generate FamPay QR. Try manual payment.", parse_mode="HTML")
             return
+
         order_id = data["order_id"]
         qr_url = data.get("qr_url") or f"{FAMPAY_BASE_URL.rstrip('/')}/qr/{order_id}.png"
         caption = (
@@ -3794,19 +3829,36 @@ def process_fampay_auto_amount(msg):
             f"📋 <b>Steps:</b>\n"
             f"1️⃣ Scan QR with any UPI app\n"
             f"2️⃣ Pay ₹{int(amount)} exactly\n"
-            f"3️⃣ Wallet credited automatically! ⚡\n\n"
+            f"3️⃣ Send UTR below for instant confirmation ⚡\n\n"
             f"⏰ QR expires in 5 minutes"
         )
         try:
             bot.send_photo(msg.chat.id, qr_url, caption=caption, parse_mode="HTML")
         except:
             bot.send_message(msg.chat.id, caption + f"\n\n🔗 QR: {qr_url}", parse_mode="HTML")
-        # Start background polling
+
+        # Ask for UTR as formality (for instant auto-approval)
+        bot.send_message(
+            msg.chat.id,
+            "📝 <b>Step 2: Confirm Payment</b>\n\n"
+            "After paying, send your <b>UTR / Transaction ID</b>\n"
+            "<i>(Found in your UPI app payment history)</i>",
+            parse_mode="HTML"
+        )
+        fampay_auto_states[user_id] = {
+            "step": "waiting_utr",
+            "amount": amount,
+            "order_id": order_id,
+            "chat_id": msg.chat.id
+        }
+
+        # Also start background API polling as backup
         threading.Thread(
             target=fampay_poll_payment,
             args=(msg.chat.id, user_id, order_id, amount),
             daemon=True
         ).start()
+
     except ValueError:
         bot.send_message(msg.chat.id, "❌ Invalid amount. Enter numbers only:")
         bot.register_next_step_handler(msg, process_fampay_auto_amount)
@@ -4012,6 +4064,56 @@ def handle_screenshot_input(msg):
     except Exception as e:
         logger.error(f"Screenshot handler error: {e}")
         bot.send_message(msg.chat.id, f"❌ Error submitting payment: {str(e)}")
+
+# =============================================================
+# FAMPAY AUTO UTR HANDLER — formality, then auto-approve
+# =============================================================
+
+@bot.message_handler(func=lambda m: fampay_auto_states.get(m.from_user.id, {}).get("step") == "waiting_utr")
+def handle_fampay_utr(msg):
+    user_id = msg.from_user.id
+    state = fampay_auto_states.get(user_id)
+    if not state or state.get("step") != "waiting_utr":
+        return
+
+    utr = msg.text.strip()
+    if len(utr) < 4:
+        bot.send_message(msg.chat.id, "❌ UTR too short. Please send a valid UTR / Transaction ID:")
+        return
+
+    fampay_auto_states[user_id]["utr"] = utr
+    fampay_auto_states[user_id]["step"] = "waiting_screenshot"
+
+    bot.send_message(
+        msg.chat.id,
+        f"✅ <b>UTR Received:</b> <code>{utr}</code>\n\n"
+        "📸 <b>Step 3:</b> Send payment <b>screenshot</b> to complete verification.",
+        parse_mode="HTML"
+    )
+
+@bot.message_handler(
+    content_types=['photo'],
+    func=lambda m: fampay_auto_states.get(m.from_user.id, {}).get("step") == "waiting_screenshot"
+)
+def handle_fampay_screenshot(msg):
+    user_id = msg.from_user.id
+    state = fampay_auto_states.get(user_id)
+    if not state or state.get("step") != "waiting_screenshot":
+        return
+
+    try:
+        screenshot_file_id = msg.photo[-1].file_id
+        amount = state["amount"]
+        order_id = state["order_id"]
+        utr = state.get("utr", "")
+        chat_id = state["chat_id"]
+
+        # Auto-approve immediately (formality satisfied)
+        fampay_credit_and_notify(chat_id, user_id, order_id, amount, utr=utr)
+
+    except Exception as e:
+        logger.error(f"FamPay screenshot handler error: {e}")
+        bot.send_message(msg.chat.id, "❌ Error processing. Please contact admin.")
 
 # =============================================================
 # RECEIVER ID INPUT HANDLER - FIXED NAME DISPLAY
