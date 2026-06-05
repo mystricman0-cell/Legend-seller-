@@ -49,18 +49,371 @@ MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://dhruvkumarray3_db_user:Sc1nt6k
 API_ID = int(os.getenv('API_ID', '37751241'))
 API_HASH = os.getenv('API_HASH', '2e90f273e745d4c080fdfab24fa98494')
 
-# UPI PAYMENT CONFIG
-UPI_ID = os.getenv('UPI_ID', 'rishabhkumarray@fam')
-QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', 'https://files.catbox.moe/91ug40.jpg')
+# UPI / FAMPAY CONFIG
+UPI_ID = os.getenv('UPI_ID', '')
+QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', '')
+FAMPAY_QR_URL = os.getenv('FAMPAY_QR_URL', '')
+FAMPAY_UPI_ID = os.getenv('FAMPAY_UPI_ID', '')
+
+# CRYPTO CONFIG
+CRYPTO_USDT_ADDRESS = os.getenv('CRYPTO_USDT_ADDRESS', '')
+CRYPTO_NETWORK = os.getenv('CRYPTO_NETWORK', 'TRC20')
 
 # MUST JOIN CHANNELS - TWO CHANNELS
 MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
 MUST_JOIN_CHANNEL_2 = "@II_LEGEND_OTP_SELLER_UPDATES_II"
 # LOG CHANNEL
-LOG_CHANNEL_ID = "-1003659930873"
+LOG_CHANNEL_ID = "-1003912691513"
 
 # Referral commission percentage
 REFERRAL_COMMISSION = 1.7
+
+# ─── Country flag emoji mapping (280+ countries) ──────────────────────────────
+COUNTRY_FLAGS = {
+    "india": "🇮🇳", "indian": "🇮🇳",
+    "russia": "🇷🇺", "russian": "🇷🇺",
+    "usa": "🇺🇸", "united states": "🇺🇸", "america": "🇺🇸", "us": "🇺🇸",
+    "uk": "🇬🇧", "united kingdom": "🇬🇧", "britain": "🇬🇧", "england": "🇬🇧",
+    "china": "🇨🇳", "chinese": "🇨🇳",
+    "germany": "🇩🇪", "german": "🇩🇪",
+    "france": "🇫🇷", "french": "🇫🇷",
+    "japan": "🇯🇵", "japanese": "🇯🇵",
+    "brazil": "🇧🇷", "brazilian": "🇧🇷",
+    "canada": "🇨🇦", "canadian": "🇨🇦",
+    "australia": "🇦🇺", "australian": "🇦🇺",
+    "indonesia": "🇮🇩", "indonesian": "🇮🇩",
+    "pakistan": "🇵🇰", "pakistani": "🇵🇰",
+    "bangladesh": "🇧🇩", "bangladeshi": "🇧🇩",
+    "nigeria": "🇳🇬", "nigerian": "🇳🇬",
+    "mexico": "🇲🇽", "mexican": "🇲🇽",
+    "philippines": "🇵🇭", "filipino": "🇵🇭", "philippine": "🇵🇭",
+    "vietnam": "🇻🇳", "vietnamese": "🇻🇳",
+    "ethiopia": "🇪🇹", "ethiopian": "🇪🇹",
+    "egypt": "🇪🇬", "egyptian": "🇪🇬",
+    "turkey": "🇹🇷", "turkish": "🇹🇷",
+    "iran": "🇮🇷", "iranian": "🇮🇷",
+    "thailand": "🇹🇭", "thai": "🇹🇭",
+    "myanmar": "🇲🇲",
+    "kenya": "🇰🇪", "kenyan": "🇰🇪",
+    "ghana": "🇬🇭", "ghanaian": "🇬🇭",
+    "ukraine": "🇺🇦", "ukrainian": "🇺🇦",
+    "argentina": "🇦🇷", "argentinian": "🇦🇷",
+    "colombia": "🇨🇴", "colombian": "🇨🇴",
+    "algeria": "🇩🇿", "algerian": "🇩🇿",
+    "sudan": "🇸🇩", "sudanese": "🇸🇩",
+    "iraq": "🇮🇶", "iraqi": "🇮🇶",
+    "uganda": "🇺🇬", "ugandan": "🇺🇬",
+    "poland": "🇵🇱", "polish": "🇵🇱",
+    "malaysia": "🇲🇾", "malaysian": "🇲🇾",
+    "peru": "🇵🇪", "peruvian": "🇵🇪",
+    "venezuela": "🇻🇪", "venezuelan": "🇻🇪",
+    "saudi arabia": "🇸🇦", "saudi": "🇸🇦",
+    "afghanistan": "🇦🇫", "afghan": "🇦🇫",
+    "morocco": "🇲🇦", "moroccan": "🇲🇦",
+    "angola": "🇦🇴", "angolan": "🇦🇴",
+    "mozambique": "🇲🇿",
+    "ivory coast": "🇨🇮", "cote d'ivoire": "🇨🇮",
+    "cameroon": "🇨🇲", "cameroonian": "🇨🇲",
+    "niger": "🇳🇪",
+    "mali": "🇲🇱",
+    "burkina faso": "🇧🇫",
+    "malawi": "🇲🇼",
+    "zambia": "🇿🇲",
+    "senegal": "🇸🇳",
+    "zimbabwe": "🇿🇼",
+    "guinea": "🇬🇳",
+    "somalia": "🇸🇴", "somali": "🇸🇴",
+    "rwanda": "🇷🇼",
+    "benin": "🇧🇯",
+    "burundi": "🇧🇮",
+    "tunisia": "🇹🇳", "tunisian": "🇹🇳",
+    "south africa": "🇿🇦",
+    "tajikistan": "🇹🇯",
+    "kyrgyzstan": "🇰🇬",
+    "turkmenistan": "🇹🇲",
+    "uzbekistan": "🇺🇿",
+    "kazakhstan": "🇰🇿",
+    "hong kong": "🇭🇰",
+    "taiwan": "🇹🇼",
+    "south korea": "🇰🇷", "korea": "🇰🇷",
+    "north korea": "🇰🇵",
+    "israel": "🇮🇱",
+    "spain": "🇪🇸", "spanish": "🇪🇸",
+    "italy": "🇮🇹", "italian": "🇮🇹",
+    "netherlands": "🇳🇱", "dutch": "🇳🇱",
+    "portugal": "🇵🇹", "portuguese": "🇵🇹",
+    "sweden": "🇸🇪", "swedish": "🇸🇪",
+    "norway": "🇳🇴", "norwegian": "🇳🇴",
+    "denmark": "🇩🇰", "danish": "🇩🇰",
+    "finland": "🇫🇮", "finnish": "🇫🇮",
+    "belgium": "🇧🇪", "belgian": "🇧🇪",
+    "switzerland": "🇨🇭", "swiss": "🇨🇭",
+    "austria": "🇦🇹", "austrian": "🇦🇹",
+    "czechia": "🇨🇿", "czech republic": "🇨🇿", "czech": "🇨🇿",
+    "slovakia": "🇸🇰",
+    "hungary": "🇭🇺", "hungarian": "🇭🇺",
+    "romania": "🇷🇴", "romanian": "🇷🇴",
+    "bulgaria": "🇧🇬", "bulgarian": "🇧🇬",
+    "croatia": "🇭🇷",
+    "serbia": "🇷🇸",
+    "greece": "🇬🇷", "greek": "🇬🇷",
+    "new zealand": "🇳🇿",
+    "sri lanka": "🇱🇰",
+    "nepal": "🇳🇵", "nepali": "🇳🇵",
+    "cambodia": "🇰🇭",
+    "laos": "🇱🇦",
+    "mongolia": "🇲🇳",
+    "singapore": "🇸🇬",
+    "maldives": "🇲🇻",
+    "bhutan": "🇧🇹",
+    "qatar": "🇶🇦",
+    "kuwait": "🇰🇼",
+    "bahrain": "🇧🇭",
+    "uae": "🇦🇪", "united arab emirates": "🇦🇪", "dubai": "🇦🇪",
+    "jordan": "🇯🇴",
+    "lebanon": "🇱🇧",
+    "syria": "🇸🇾",
+    "armenia": "🇦🇲",
+    "azerbaijan": "🇦🇿",
+    "georgia": "🇬🇪",
+    "belarus": "🇧🇾",
+    "moldova": "🇲🇩",
+    "latvia": "🇱🇻",
+    "lithuania": "🇱🇹",
+    "estonia": "🇪🇪",
+    "chile": "🇨🇱",
+    "ecuador": "🇪🇨",
+    "bolivia": "🇧🇴",
+    "paraguay": "🇵🇾",
+    "uruguay": "🇺🇾",
+    "cuba": "🇨🇺",
+    "dominican republic": "🇩🇴",
+    "haiti": "🇭🇹",
+    "guatemala": "🇬🇹",
+    "honduras": "🇭🇳",
+    "el salvador": "🇸🇻",
+    "nicaragua": "🇳🇮",
+    "costa rica": "🇨🇷",
+    "panama": "🇵🇦",
+    "jamaica": "🇯🇲",
+    "trinidad": "🇹🇹", "trinidad and tobago": "🇹🇹",
+    "madagascar": "🇲🇬",
+    "tanzania": "🇹🇿",
+    "drc": "🇨🇩", "congo": "🇨🇬",
+    "eritrea": "🇪🇷",
+    "djibouti": "🇩🇯",
+    "liberia": "🇱🇷",
+    "sierra leone": "🇸🇱",
+    "gambia": "🇬🇲",
+    "togo": "🇹🇬",
+    "central african republic": "🇨🇫",
+    "south sudan": "🇸🇸",
+    "gabon": "🇬🇦",
+    "equatorial guinea": "🇬🇶",
+    "comoros": "🇰🇲",
+    "seychelles": "🇸🇨",
+    "mauritius": "🇲🇺",
+    "libya": "🇱🇾",
+    "namibia": "🇳🇦",
+    "botswana": "🇧🇼",
+    "lesotho": "🇱🇸",
+    "eswatini": "🇸🇿", "swaziland": "🇸🇿",
+    "oman": "🇴🇲",
+    "yemen": "🇾🇪",
+    "timor": "🇹🇱",
+    "brunei": "🇧🇳",
+    "fiji": "🇫🇯",
+    "albania": "🇦🇱",
+    "north macedonia": "🇲🇰",
+    "bosnia": "🇧🇦",
+    "kosovo": "🇽🇰",
+    "montenegro": "🇲🇪",
+    "slovenia": "🇸🇮",
+    "iceland": "🇮🇸",
+    "ireland": "🇮🇪",
+    "luxembourg": "🇱🇺",
+    "malta": "🇲🇹",
+    "cyprus": "🇨🇾",
+    "puerto rico": "🇵🇷",
+    "cape verde": "🇨🇻",
+    "guyana": "🇬🇾",
+    "suriname": "🇸🇷",
+    "belize": "🇧🇿",
+    "bahamas": "🇧🇸",
+    "barbados": "🇧🇧",
+    "grenada": "🇬🇩",
+    "saint lucia": "🇱🇨",
+    "saint vincent": "🇻🇨",
+    "antigua": "🇦🇬",
+    "dominica": "🇩🇲",
+    "saint kitts": "🇰🇳",
+    "fiji": "🇫🇯",
+    "vanuatu": "🇻🇺",
+    "samoa": "🇼🇸",
+    "tonga": "🇹🇴",
+    "kiribati": "🇰🇮",
+    "micronesia": "🇫🇲",
+    "palau": "🇵🇼",
+    "nauru": "🇳🇷",
+    "tuvalu": "🇹🇻",
+    "marshall islands": "🇲🇭",
+    "solomon islands": "🇸🇧",
+    "papua new guinea": "🇵🇬",
+}
+
+def get_country_flag(country_name: str) -> str:
+    """Auto-detect country flag from name"""
+    lower = country_name.lower().strip()
+    for key, flag in COUNTRY_FLAGS.items():
+        if key in lower or lower in key:
+            return flag
+    return "🌍"
+
+# ─── Railway / Uptime Heartbeat ────────────────────────────────────────────────
+BOT_START_TIME = time.time()
+
+def _heartbeat_loop():
+    """Ping self every 5 min + send report to personal log channel"""
+    import urllib.request
+    while True:
+        try:
+            time.sleep(300)
+            # Self-ping to keep alive
+            try:
+                domain = os.getenv("REPLIT_DEV_DOMAIN", "")
+                if domain:
+                    urllib.request.urlopen(f"https://{domain}/", timeout=10)
+            except Exception:
+                pass
+
+            # Send heartbeat report to personal log channel
+            try:
+                uptime_secs = int(time.time() - BOT_START_TIME)
+                hours, rem = divmod(uptime_secs, 3600)
+                minutes, secs = divmod(rem, 60)
+                uptime_str = f"{hours}h {minutes}m {secs}s"
+                stats = {
+                    "users": users_col.count_documents({}),
+                    "active_accounts": accounts_col.count_documents({"status": "active", "used": False}),
+                    "orders": orders_col.count_documents({}),
+                    "pending_recharges": recharges_col.count_documents({"status": "pending"}),
+                }
+                from logs import get_logger
+                get_logger().log_heartbeat(uptime_str, stats)
+            except Exception as e:
+                logger.debug(f"Heartbeat log: {e}")
+        except Exception as e:
+            logger.debug(f"Heartbeat loop: {e}")
+
+threading.Thread(target=_heartbeat_loop, daemon=True).start()
+
+# ─── Security: Rate Limiter + Honeypot ────────────────────────────────────────
+_rate_tracker: dict = {}       # {user_id: [timestamps]}
+_honeypot_strikes: dict = {}   # {user_id: strike_count}
+_blocked_users: set = set()    # temporary in-memory block
+
+RATE_LIMIT_COUNT = 15          # max messages
+RATE_LIMIT_WINDOW = 60         # per seconds
+HONEYPOT_COMMANDS = {
+    "/admin", "/panel", "/root", "/hack", "/exploit", "/shell",
+    "/exec", "/cmd", "/backdoor", "/bypass", "/getid", "/dbdump",
+}
+
+def _is_rate_limited(user_id: int) -> bool:
+    """Return True if user exceeds rate limit"""
+    now = time.time()
+    times = _rate_tracker.get(user_id, [])
+    times = [t for t in times if now - t < RATE_LIMIT_WINDOW]
+    times.append(now)
+    _rate_tracker[user_id] = times
+    return len(times) > RATE_LIMIT_COUNT
+
+def _check_honeypot(user_id: int, text: str) -> bool:
+    """Return True if honeypot triggered (should block)"""
+    if not text:
+        return False
+    lower = text.strip().lower().split()[0] if text.strip() else ""
+    if lower in HONEYPOT_COMMANDS:
+        strikes = _honeypot_strikes.get(user_id, 0) + 1
+        _honeypot_strikes[user_id] = strikes
+        logger.warning(f"🍯 Honeypot triggered by {user_id}: '{text}' (strikes={strikes})")
+        if strikes >= 3:
+            _blocked_users.add(user_id)
+            logger.warning(f"🚫 User {user_id} auto-blocked after {strikes} honeypot strikes")
+        return True
+    return False
+
+def _is_security_blocked(user_id: int) -> bool:
+    return user_id in _blocked_users
+
+# ─── Premium Start Animation ──────────────────────────────────────────────────
+
+def _send_premium_animation(chat_id: int, user_id: int, user_name: str = ""):
+    """Send tiered premium start animation based on role"""
+    try:
+        if is_super_admin(user_id):
+            # OWNER animation
+            frame1 = (
+                "♔ <b>OWNER ACCESS DETECTED</b> ♔\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚡ <code>Initializing exclusive access...</code>"
+            )
+            frame2 = (
+                "♔ <b>LEGENDARY OTP BOT — OWNER</b> ♔\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "🌟 Welcome back, <b>Legend</b>!\n"
+                "🔐 Full system access granted\n"
+                "👑 All powers unlocked\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "✨ <i>The empire is yours to command</i>"
+            )
+        elif is_admin(user_id):
+            # ADMIN animation
+            frame1 = (
+                "🛡 <b>ADMIN ACCESS GRANTED</b> 🛡\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚙️ <code>Loading admin dashboard...</code>"
+            )
+            frame2 = (
+                "🛡 <b>LEGENDARY OTP BOT — ADMIN</b> 🛡\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                f"⚡ Welcome, <b>{user_name or 'Admin'}</b>!\n"
+                "🔑 Admin privileges active\n"
+                "📊 Panel ready for use\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "💼 <i>Ready to manage the system</i>"
+            )
+        else:
+            # USER animation
+            frame1 = (
+                "🔥 <b>LEGENDARY OTP SELLER</b> 🔥\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚡ <code>Loading premium experience...</code>"
+            )
+            frame2 = (
+                "💎 <b>LEGENDARY OTP SELLER BOT</b> 💎\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                f"✨ Welcome, <b>{user_name or 'User'}</b>!\n"
+                "🌍 180+ Countries Available\n"
+                "⚡ Instant OTP Delivery\n"
+                "💳 Easy Recharge & Purchase\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "🚀 <i>Premium Telegram Account Service</i>"
+            )
+
+        anim_msg = bot.send_message(chat_id, frame1, parse_mode="HTML")
+        time.sleep(1.2)
+        try:
+            bot.edit_message_text(frame2, chat_id, anim_msg.message_id, parse_mode="HTML")
+        except:
+            pass
+        time.sleep(0.8)
+        try:
+            bot.delete_message(chat_id, anim_msg.message_id)
+        except:
+            pass
+    except Exception as e:
+        logger.debug(f"Animation error (non-critical): {e}")
 
 # Global API Credentials for Pyrogram Login
 GLOBAL_API_ID = 37751241
@@ -140,12 +493,34 @@ except ImportError as e:
     account_manager = None
 
 # Import logging module
+PERSONAL_LOG_CHANNEL_ID = os.getenv("PERSONAL_LOG_CHANNEL_ID", LOG_CHANNEL_ID)
+
 try:
-    from logs import init_logger, log_purchase_async, log_otp_received_async, log_recharge_approved_async
-    init_logger(BOT_TOKEN, LOG_CHANNEL_ID)
-    logger.info(f"✅ Telegram logger initialized for channel: {LOG_CHANNEL_ID}")
+    from logs import (
+        init_logger,
+        log_purchase_async, log_otp_received_async,
+        log_recharge_approved_async, log_recharge_rejected_async,
+        log_personal_purchase_async, log_personal_otp_async,
+        log_personal_deposit_approved_async, log_personal_deposit_rejected_async,
+        log_personal_new_user_async, log_personal_recharge_request_async,
+        log_personal_balance_deduct_async, log_personal_ban_async,
+    )
+    init_logger(BOT_TOKEN, LOG_CHANNEL_ID, personal_channel_id=PERSONAL_LOG_CHANNEL_ID)
+    logger.info(f"✅ Telegram dual-logger initialized | public={LOG_CHANNEL_ID} | personal={PERSONAL_LOG_CHANNEL_ID}")
 except ImportError as e:
     logger.error(f"❌ Failed to load logging module: {e}")
+    def log_purchase_async(*a, **k): pass
+    def log_otp_received_async(*a, **k): pass
+    def log_recharge_approved_async(*a, **k): pass
+    def log_recharge_rejected_async(*a, **k): pass
+    def log_personal_purchase_async(*a, **k): pass
+    def log_personal_otp_async(*a, **k): pass
+    def log_personal_deposit_approved_async(*a, **k): pass
+    def log_personal_deposit_rejected_async(*a, **k): pass
+    def log_personal_new_user_async(*a, **k): pass
+    def log_personal_recharge_request_async(*a, **k): pass
+    def log_personal_balance_deduct_async(*a, **k): pass
+    def log_personal_ban_async(*a, **k): pass
 
 # Async manager for background tasks
 async_manager = None
@@ -591,7 +966,15 @@ def ensure_user_exists(user_id, user_name=None, username=None, referred_by=None)
             "created_at": datetime.utcnow()
         }
         users_col.insert_one(user_data)
-        
+        try:
+            log_personal_new_user_async(
+                user_id=user_id,
+                username=username or "",
+                first_name=user_name or ""
+            )
+        except:
+            pass
+
         if referred_by:
             referral_record = {
                 "referrer_id": referred_by,
@@ -606,7 +989,7 @@ def ensure_user_exists(user_id, user_name=None, username=None, referred_by=None)
                 {"$inc": {"total_referrals": 1}}
             )
             logger.info(f"Referral recorded: {referred_by} -> {user_id}")
-    
+
     wallets_col.update_one(
         {"user_id": user_id},
         {"$setOnInsert": {"user_id": user_id, "balance": 0.0}},
@@ -948,14 +1331,25 @@ def process_recharge_approval(admin_id, req_id, action):
                 }}
             )
             
-            # Log approval
+            # Log approval (public + personal)
             try:
-                from logs import log_recharge_approved_async
                 log_recharge_approved_async(
                     user_id=user_target,
                     amount=amount,
                     method=req.get("method", "UPI"),
                     utr=req.get("utr")
+                )
+            except:
+                pass
+            try:
+                _u = users_col.find_one({"user_id": user_target}) or {}
+                log_personal_deposit_approved_async(
+                    user_id=user_target,
+                    username=_u.get("username") or "",
+                    amount=amount,
+                    method=req.get("method", "UPI"),
+                    utr=req.get("utr") or "",
+                    admin_name=admin_name
                 )
             except:
                 pass
@@ -990,13 +1384,36 @@ def process_recharge_approval(admin_id, req_id, action):
                 }}
             )
             
+            # Log rejection (public + personal)
+            try:
+                log_recharge_rejected_async(
+                    user_id=user_target,
+                    amount=amount,
+                    method=req.get("method", "UPI"),
+                    utr=req.get("utr")
+                )
+            except:
+                pass
+            try:
+                _u2 = users_col.find_one({"user_id": user_target}) or {}
+                log_personal_deposit_rejected_async(
+                    user_id=user_target,
+                    username=_u2.get("username") or "",
+                    amount=amount,
+                    method=req.get("method", "UPI"),
+                    utr=req.get("utr") or "",
+                    admin_name=admin_name
+                )
+            except:
+                pass
+
             # Mark this rejection in tracking
             recharge_approvals[approval_key] = {
                 "admin_id": admin_id,
                 "admin_name": admin_name,
                 "timestamp": datetime.utcnow()
             }
-            
+
             return True, f"❌ Recharge rejected by {admin_name}", {
                 "admin_name": admin_name,
                 "admin_id": admin_id,
@@ -1226,6 +1643,19 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 pass
     
     ensure_user_exists(user_id, msg.from_user.first_name, msg.from_user.username, referred_by)
+
+    # Security check
+    if _is_security_blocked(user_id):
+        return
+
+    # Premium animation in background thread (non-blocking)
+    threading.Thread(
+        target=_send_premium_animation,
+        args=(user_id, user_id, msg.from_user.first_name or ""),
+        daemon=True
+    ).start()
+
+    time.sleep(2.2)
     clean_ui_and_send_menu(user_id, user_id)
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -1811,27 +2241,29 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             bot.register_next_step_handler(call.message, process_recharge_amount)
         
         elif data == "recharge_crypto":
-            if not has_user_joined_channels(user_id):
-                missing_channels = get_missing_channels(user_id)
-                missing_list = "\n".join([f"• {ch}" for ch in missing_channels])
-                bot.answer_callback_query(
-                    call.id, 
-                    f"❌ Please join:\n{missing_list}", 
-                    show_alert=True
-                )
-                start(call.message)
+            if not CRYPTO_USDT_ADDRESS:
+                bot.answer_callback_query(call.id, "⚠️ Crypto payment not configured yet. Contact admin.", show_alert=True)
                 return
-            
-            recharge_method_state[user_id] = "crypto"
-            edit_or_resend(
-                call.message.chat.id,
-                call.message.message_id,
-                "💳 Enter recharge amount in INR for Crypto (minimum ₹1):",
-                markup=InlineKeyboardMarkup().add(
-                    InlineKeyboardButton("❌ Cancel", callback_data="back_to_menu")
-                )
+            crypto_text = (
+                "💎 <b>Crypto Payment (USDT)</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "<blockquote>"
+                f"🪙 <b>Token:</b> USDT\n"
+                f"🌐 <b>Network:</b> {CRYPTO_NETWORK}\n"
+                f"📋 <b>Address:</b>\n<code>{CRYPTO_USDT_ADDRESS}</code>"
+                "</blockquote>\n\n"
+                "📌 <b>Steps:</b>\n"
+                "1️⃣ Send USDT to the address above\n"
+                "2️⃣ Take screenshot of transaction\n"
+                "3️⃣ Send screenshot + TxID to admin\n\n"
+                "⚠️ <i>Min 1 USDT. Wrong network = funds lost!</i>"
             )
-            bot.register_next_step_handler(call.message, process_recharge_amount)
+            markup = InlineKeyboardMarkup(row_width=1)
+            markup.add(
+                InlineKeyboardButton("📩 Contact Admin", url=f"https://t.me/{os.getenv('ADMIN_USERNAME', '')}"),
+                InlineKeyboardButton("⬅️ Back", callback_data="recharge")
+            )
+            edit_or_resend(call.message.chat.id, call.message.message_id, crypto_text, markup=markup, parse_mode="HTML")
         
         elif data == "upi_deposited":
             user_id = call.from_user.id
@@ -1932,7 +2364,101 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
         
         elif data == "out_of_stock":
             bot.answer_callback_query(call.id, "❌ Out of Stock! No accounts available.", show_alert=True)
-        
+
+        elif data.startswith("countries_page_"):
+            try:
+                pg = int(data.split("_")[-1])
+            except:
+                pg = 1
+            try:
+                bot.delete_message(call.message.chat.id, call.message.message_id)
+            except:
+                pass
+            show_countries(call.message.chat.id, page=pg)
+
+        elif data == "admin_permissions":
+            if is_super_admin(user_id):
+                show_admin_permissions(call.message.chat.id)
+            else:
+                bot.answer_callback_query(call.id, "❌ Owner only", show_alert=True)
+
+        elif data.startswith("view_admin_perm_"):
+            if is_super_admin(user_id):
+                target_id = int(data.split("_")[-1])
+                show_admin_perm_detail(call.message.chat.id, target_id)
+            else:
+                bot.answer_callback_query(call.id, "❌ Owner only", show_alert=True)
+
+        elif data.startswith("toggle_perm_"):
+            if is_super_admin(user_id):
+                parts = data.split("_", 3)
+                # toggle_perm_{admin_id}_{perm_key}
+                target_id = int(parts[2])
+                perm_key = parts[3]
+                adm = admins_col.find_one({"user_id": target_id})
+                if adm:
+                    perms = adm.get("permissions", {})
+                    current = perms.get(perm_key, True)
+                    perms[perm_key] = not current
+                    admins_col.update_one({"user_id": target_id}, {"$set": {"permissions": perms}})
+                    status = "🟢 ON" if not current else "🔴 OFF"
+                    bot.answer_callback_query(call.id, f"{perm_key}: {status}", show_alert=False)
+                    show_admin_perm_detail(call.message.chat.id, target_id)
+                    try:
+                        bot.delete_message(call.message.chat.id, call.message.message_id)
+                    except:
+                        pass
+
+        elif data.startswith("perm_all_on_") or data.startswith("perm_all_off_"):
+            if is_super_admin(user_id):
+                enable = data.startswith("perm_all_on_")
+                target_id = int(data.split("_")[-1])
+                new_perms = {k: enable for k in PERMISSION_LABELS}
+                admins_col.update_one({"user_id": target_id}, {"$set": {"permissions": new_perms}})
+                bot.answer_callback_query(call.id, f"All permissions {'enabled' if enable else 'disabled'}", show_alert=False)
+                try:
+                    bot.delete_message(call.message.chat.id, call.message.message_id)
+                except:
+                    pass
+                show_admin_perm_detail(call.message.chat.id, target_id)
+
+        elif data == "cleanmongo_confirm":
+            if is_super_admin(user_id):
+                markup = InlineKeyboardMarkup(row_width=2)
+                markup.add(
+                    InlineKeyboardButton("✅ Yes, Clean Now", callback_data="cleanmongo_run"),
+                    InlineKeyboardButton("❌ Cancel", callback_data="admin_panel")
+                )
+                bot.send_message(
+                    call.message.chat.id,
+                    "⚠️ <b>MongoDB Cleanup</b>\n\n"
+                    "This will remove:\n"
+                    "• Expired OTP sessions (>2 hours)\n"
+                    "• Used accounts older than 30 days\n"
+                    "• Old processed recharge requests (>60 days)\n"
+                    "• Old orders (>60 days)\n\n"
+                    "<b>Are you sure?</b>",
+                    reply_markup=markup, parse_mode="HTML"
+                )
+
+        elif data == "cleanmongo_run":
+            if is_super_admin(user_id):
+                bot.answer_callback_query(call.id, "🗑 Cleaning...", show_alert=False)
+                try:
+                    results = _run_mongo_cleanup()
+                    bot.send_message(
+                        call.message.chat.id,
+                        f"✅ <b>MongoDB Cleanup Complete!</b>\n\n"
+                        f"🗑 OTP Sessions removed: <b>{results['otp_sessions']}</b>\n"
+                        f"🗑 Used Accounts removed: <b>{results['used_accounts']}</b>\n"
+                        f"🗑 Old Recharges removed: <b>{results['old_recharges']}</b>\n"
+                        f"🗑 Old Orders removed: <b>{results['old_orders']}</b>\n\n"
+                        f"💾 Database is clean now!",
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    bot.send_message(call.message.chat.id, f"❌ Cleanup error: {e}")
+
         elif data == "edit_price":
             if is_admin(user_id):
                 bot.answer_callback_query(call.id, "Processing...")
@@ -2714,19 +3240,21 @@ def get_latest_otp(user_id, session_id, chat_id, callback_id):
             except:
                 pass
         
-        message = f"✅ **Latest OTP**\n\n"
-        message += f"📱 Phone: `{session_data.get('phone', 'N/A')}`\n"
-        message += f"🔢 OTP Code: `{otp_code}`\n"
-        if two_step_password:
-            message += f"🔐 2FA Password: `{two_step_password}`\n"
-        elif account and account.get("two_step_password"):
-            message += f"🔐 2FA Password: `{account.get('two_step_password')}`\n"
+        # Build OTP message with tap-to-copy format
+        fa_password = two_step_password or (account.get("two_step_password", "") if account else "")
+
+        message = "✅ <b>Latest OTP Received!</b>\n\n"
+        message += f"📱 Phone: <code>{session_data.get('phone', 'N/A')}</code>\n"
+        message += f"🔢 OTP Code: <code>{otp_code}</code>\n"
+        if fa_password:
+            message += f"🔐 2FA Password: <code>{fa_password}</code>\n"
         message += f"\n⏰ Time: {datetime.utcnow().strftime('%H:%M:%S')}"
-        message += f"\n\nEnter this code in Telegram X app."
-        
+        message += "\n\n<i>💡 Tap any value above to copy it instantly!</i>"
+        message += "\n\n📲 Open Telegram X → enter phone → enter OTP above."
+
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
-            InlineKeyboardButton("🔄 Get OTP Again", callback_data=f"get_otp_{session_id}"),
+            InlineKeyboardButton("🔄 Refresh OTP", callback_data=f"get_otp_{session_id}"),
             InlineKeyboardButton("🚪 Logout", callback_data=f"logout_session_{session_id}")
         )
         
@@ -2735,19 +3263,19 @@ def get_latest_otp(user_id, session_id, chat_id, callback_id):
                 message,
                 chat_id,
                 callback_id.message.message_id,
-                parse_mode="Markdown",
+                parse_mode="HTML",
                 reply_markup=markup
             )
         except:
             sent_msg = bot.send_message(
                 chat_id,
                 message,
-                parse_mode="Markdown",
+                parse_mode="HTML",
                 reply_markup=markup
             )
             user_last_message[user_id] = sent_msg.message_id
-        
-        bot.answer_callback_query(callback_id, "✅ Latest OTP fetched!", show_alert=False)
+
+        bot.answer_callback_query(callback_id, "✅ OTP fetched! Tap code to copy.", show_alert=False)
     except Exception as e:
         logger.error(f"Get OTP error: {e}")
         bot.answer_callback_query(callback_id, "❌ Error getting OTP", show_alert=True)
@@ -3080,44 +3608,34 @@ def handle_coupon_status_input(msg):
 # ---------------------------------------------------------------------
 
 def show_recharge_methods(chat_id, message_id, user_id):
-    # Calculate total recharge and today's recharge for this user
     total_recharge = 0
     today_recharge = 0
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    # Get all approved recharges for this user
-    user_recharges = recharges_col.find({
-        "user_id": user_id,
-        "status": "approved"
-    })
-    
-    for recharge in user_recharges:
+    for recharge in recharges_col.find({"user_id": user_id, "status": "approved"}):
         amount = float(recharge.get("amount", 0))
         total_recharge += amount
-        
-        # Check if recharge was done today
-        recharge_date = recharge.get("created_at") or recharge.get("submitted_at")
-        if recharge_date and recharge_date >= today_start:
+        rd = recharge.get("created_at") or recharge.get("submitted_at")
+        if rd and rd >= today_start:
             today_recharge += amount
-    
-    text = f"💳 **Recharge**\n\n"
-    text += f"💰 **Total Recharge:** {format_currency(total_recharge)}\n"
-    text += f"📅 **Today's Recharge:** {format_currency(today_recharge)}\n\n"
-    text += f"⬇️ **Select Payment Method:**"
-    
-    markup = InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        InlineKeyboardButton("📱 UPI Payment", callback_data="recharge_upi")
+
+    bal = get_balance(user_id)
+
+    text = (
+        "💎 <b>Recharge Wallet</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"💰 <b>Current Balance:</b> {format_currency(bal)}\n"
+        f"📊 <b>Total Deposited:</b> {format_currency(total_recharge)}\n"
+        f"📅 <b>Today's Deposit:</b> {format_currency(today_recharge)}\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "⬇️ <b>Select Payment Method:</b>"
     )
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton("📱 UPI / FamPay", callback_data="recharge_upi"))
+    markup.add(InlineKeyboardButton("💎 Crypto (USDT)", callback_data="recharge_crypto"))
     markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_menu"))
-    
-    edit_or_resend(
-        chat_id,
-        message_id,
-        text,
-        markup=markup,
-        parse_mode="Markdown"
-    )
+
+    edit_or_resend(chat_id, message_id, text, markup=markup, parse_mode="HTML")
 
 # ---------------------------------------------------------------------
 # PROCESS RECHARGE AMOUNT FUNCTION - FIXED DATABASE ISSUE
@@ -3133,33 +3651,58 @@ def process_recharge_amount(msg):
         
         user_id = msg.from_user.id
         
-        caption = f"""<blockquote>💳 <b>UPI Payment Details</b> 
+        method = recharge_method_state.get(user_id, "upi")
 
-💰 Amount: {format_currency(amount)}
-📱 UPI ID: {UPI_ID}
+        if method == "upi":
+            display_upi = UPI_ID if UPI_ID else "[ UPI ID not set ]"
+            display_qr = QR_IMAGE_URL if QR_IMAGE_URL else None
 
-📋 Instructions:
-1. Scan QR code OR send {format_currency(amount)} to above UPI
-2. After payment, click <b>Deposited ✅</b> button
-3. Follow the steps to submit proof
+            caption = (
+                "<blockquote>💳 <b>UPI Payment Details</b>\n\n"
+                f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                f"📱 <b>UPI ID:</b> <code>{display_upi}</code>\n\n"
+                "📋 <b>Instructions:</b>\n"
+                f"1. Scan QR code OR send {format_currency(amount)} to above UPI\n"
+                "2. After payment, click <b>Deposited ✅</b>\n"
+                "3. Submit UTR + screenshot</blockquote>"
+            )
+        else:
+            display_upi = FAMPAY_UPI_ID if FAMPAY_UPI_ID else "[ FamPay UPI not set ]"
+            display_qr = FAMPAY_QR_URL if FAMPAY_QR_URL else None
 
-</blockquote>"""
-        
+            caption = (
+                "<blockquote>💜 <b>FamPay Payment Details</b>\n\n"
+                f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                f"📱 <b>FamPay UPI:</b> <code>{display_upi}</code>\n\n"
+                "📋 <b>Instructions:</b>\n"
+                f"1. Scan QR OR send {format_currency(amount)} to above ID\n"
+                "2. After payment, click <b>Deposited ✅</b>\n"
+                "3. Submit UTR + screenshot</blockquote>"
+            )
+
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("💰 Deposited ✅", callback_data="upi_deposited"))
-        
+
         upi_payment_states[user_id] = {
             "amount": amount,
             "step": "qr_shown"
         }
-        
-        bot.send_photo(
-            msg.chat.id,
-            QR_IMAGE_URL,
-            caption=caption,
-            parse_mode="HTML",
-            reply_markup=markup
-        )
+
+        if display_qr:
+            bot.send_photo(
+                msg.chat.id,
+                display_qr,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+        else:
+            bot.send_message(
+                msg.chat.id,
+                caption,
+                parse_mode="HTML",
+                reply_markup=markup
+            )
     except ValueError:
         bot.send_message(msg.chat.id, "❌ Invalid amount. Enter numbers only:")
         bot.register_next_step_handler(msg, process_recharge_amount)
@@ -3273,9 +3816,22 @@ def handle_screenshot_input(msg):
             f"Admin will review and approve soon. Thank you! 🎉"
         )
         
+        # Log recharge request (personal)
+        try:
+            _ru = users_col.find_one({"user_id": user_id}) or {}
+            log_personal_recharge_request_async(
+                user_id=user_id,
+                username=_ru.get("username") or "",
+                amount=amount,
+                utr=utr,
+                method="UPI"
+            )
+        except:
+            pass
+
         # Clear state after successful submission
         upi_payment_states.pop(user_id, None)
-        
+
     except Exception as e:
         logger.error(f"Screenshot handler error: {e}")
         bot.send_message(msg.chat.id, f"❌ Error submitting payment: {str(e)}")
@@ -3529,8 +4085,8 @@ def handle_login_flow_messages(msg):
         phone = msg.text.strip()
         if not phone.startswith('+'):
             phone = '+' + phone
-        if len(phone) < 7:
-            bot.send_message(chat_id, "❌ Invalid phone number. Please enter with country code:\nExample: +919876543210 or +79123456789")
+        if len(phone) < 6:
+            bot.send_message(chat_id, "❌ Invalid phone number. Enter with country code:\nExample: +919876543210 or +86XXXXXXXXXX or +7XXXXXXXXXX")
             return
         
         if not account_manager:
@@ -3584,8 +4140,8 @@ def handle_login_flow_messages(msg):
     
     elif step == "waiting_otp":
         otp = msg.text.strip()
-        if not otp.isdigit() or len(otp) != 5:
-            bot.send_message(chat_id, "❌ Invalid OTP format. Please enter 5-digit OTP:")
+        if not otp.isdigit() or not (4 <= len(otp) <= 8):
+            bot.send_message(chat_id, "❌ Invalid OTP format. Enter OTP (4-8 digits):")
             return
         
         if not account_manager:
@@ -3803,11 +4359,11 @@ def show_referral_info(user_id, chat_id):
 
 def show_admin_panel(chat_id):
     user_id = chat_id
-    
+
     if not is_admin(user_id):
         bot.send_message(chat_id, "❌ Unauthorized access")
         return
-    
+
     total_accounts = accounts_col.count_documents({})
     active_accounts = accounts_col.count_documents({"status": "active", "used": False})
     total_users = users_col.count_documents({})
@@ -3815,20 +4371,23 @@ def show_admin_panel(chat_id):
     banned_users = banned_users_col.count_documents({"status": "active"})
     active_countries = countries_col.count_documents({"status": "active"})
     total_admins = get_admin_count()
-    
+    pending_recharges = recharges_col.count_documents({"status": "pending"})
+
     text = (
-        f"👑 **Admin Panel**\n\n"
-        f"📊 **Statistics:**\n"
-        f"• Total Accounts: {total_accounts}\n"
-        f"• Active Accounts: {active_accounts}\n"
-        f"• Total Users: {total_users}\n"
-        f"• Total Orders: {total_orders}\n"
-        f"• Banned Users: {banned_users}\n"
-        f"• Active Countries: {active_countries}\n"
-        f"• Total Admins: {total_admins}/6\n\n"
-        f"🛠️ **Management Tools:**"
+        "👑 <b>Admin Panel</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "📊 <b>Live Statistics:</b>\n"
+        f"├ 📦 Total Accounts: <b>{total_accounts}</b>\n"
+        f"├ ✅ Available: <b>{active_accounts}</b>\n"
+        f"├ 👥 Users: <b>{total_users}</b>\n"
+        f"├ 🛒 Orders: <b>{total_orders}</b>\n"
+        f"├ ⏳ Pending Recharges: <b>{pending_recharges}</b>\n"
+        f"├ 🚫 Banned: <b>{banned_users}</b>\n"
+        f"├ 🌍 Countries: <b>{active_countries}</b>\n"
+        f"└ 👮 Admins: <b>{total_admins}/6</b>\n\n"
+        "🛠️ <b>Management Tools:</b>"
     )
-    
+
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("➕ Add Account", callback_data="add_account"),
@@ -3850,20 +4409,129 @@ def show_admin_panel(chat_id):
         InlineKeyboardButton("🌍 Manage Countries", callback_data="manage_countries"),
         InlineKeyboardButton("🎟 Coupon Management", callback_data="admin_coupon_menu")
     )
-    
-    # Show admin list for main admin
+    if is_super_admin(user_id):
+        markup.add(
+            InlineKeyboardButton("👮 Admin Permissions", callback_data="admin_permissions"),
+            InlineKeyboardButton("🗑 Clean MongoDB", callback_data="cleanmongo_confirm")
+        )
+
+    # Show current admins list for super admin
     if is_super_admin(user_id):
         admins = get_all_admins()
-        admin_text = "\n\n👥 **Current Admins:**\n"
-        for admin in admins:
-            if admin.get("is_super_admin", False):
-                admin_text += f"👑 Main: `{admin['user_id']}`\n"
-            else:
-                admin_text += f"👤 Admin: `{admin['user_id']}`\n"
-        text += admin_text
-    
-    sent_msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+        admin_lines = "\n\n👥 <b>Current Admins:</b>\n"
+        for adm in admins:
+            role = "👑 Owner" if adm.get("is_super_admin") else "👤 Admin"
+            uname = adm.get("username") or "N/A"
+            admin_lines += f"{role}: <code>{adm['user_id']}</code> (@{uname})\n"
+        text += admin_lines
+
+    sent_msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML")
     user_last_message[user_id] = sent_msg.message_id
+
+
+def show_admin_permissions(chat_id):
+    """Admin Permission Management UI"""
+    if not is_super_admin(chat_id):
+        bot.send_message(chat_id, "❌ Only owner can manage permissions.")
+        return
+
+    admins = get_all_admins()
+    non_super = [a for a in admins if not a.get("is_super_admin")]
+
+    text = (
+        "👮 <b>Admin Permission Manager</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+    )
+
+    PERMISSION_LABELS = {
+        "can_approve_recharge": "✅ Approve Recharge",
+        "can_reject_recharge": "❌ Reject Recharge",
+        "can_ban_user": "🚫 Ban/Unban Users",
+        "can_add_account": "➕ Add Accounts",
+        "can_manage_countries": "🌍 Manage Countries",
+        "can_broadcast": "📢 Broadcast",
+        "can_deduct_balance": "💳 Deduct Balance",
+        "can_refund": "💸 Refund",
+    }
+
+    if not non_super:
+        text += "No sub-admins yet.\n\nAdd admins with /addadmin first."
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("⬅️ Back", callback_data="admin_panel"))
+        bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML")
+        return
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    for adm in non_super:
+        uid = adm["user_id"]
+        uname = adm.get("username") or str(uid)
+        perms = adm.get("permissions", {})
+        perm_count = sum(1 for v in perms.values() if v)
+        total_perms = len(PERMISSION_LABELS)
+        markup.add(InlineKeyboardButton(
+            f"👤 @{uname} — {perm_count}/{total_perms} perms",
+            callback_data=f"view_admin_perm_{uid}"
+        ))
+
+    markup.add(InlineKeyboardButton("⬅️ Back to Admin Panel", callback_data="admin_panel"))
+
+    text += "Select an admin to manage their permissions:"
+    bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML")
+
+
+PERMISSION_LABELS = {
+    "can_approve_recharge": "✅ Approve Recharge",
+    "can_reject_recharge": "❌ Reject Recharge",
+    "can_ban_user": "🚫 Ban/Unban",
+    "can_add_account": "➕ Add Accounts",
+    "can_manage_countries": "🌍 Manage Countries",
+    "can_broadcast": "📢 Broadcast",
+    "can_deduct_balance": "💳 Deduct Balance",
+    "can_refund": "💸 Refund",
+}
+
+
+def show_admin_perm_detail(chat_id, target_admin_id):
+    """Show permission toggles for a specific admin"""
+    if not is_super_admin(chat_id):
+        return
+    adm = admins_col.find_one({"user_id": int(target_admin_id)})
+    if not adm:
+        bot.send_message(chat_id, "❌ Admin not found.")
+        return
+    perms = adm.get("permissions", {})
+    uname = adm.get("username") or str(target_admin_id)
+    text = (
+        f"👤 <b>Admin: @{uname}</b>\n"
+        f"🆔 ID: <code>{target_admin_id}</code>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "Toggle permissions below:"
+    )
+    markup = InlineKeyboardMarkup(row_width=1)
+    for perm_key, perm_label in PERMISSION_LABELS.items():
+        enabled = perms.get(perm_key, True)
+        icon = "🟢" if enabled else "🔴"
+        markup.add(InlineKeyboardButton(
+            f"{icon} {perm_label}",
+            callback_data=f"toggle_perm_{target_admin_id}_{perm_key}"
+        ))
+    markup.add(
+        InlineKeyboardButton("🔓 Enable All", callback_data=f"perm_all_on_{target_admin_id}"),
+        InlineKeyboardButton("🔒 Disable All", callback_data=f"perm_all_off_{target_admin_id}")
+    )
+    markup.add(InlineKeyboardButton("⬅️ Back", callback_data="admin_permissions"))
+    bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML")
+
+
+def admin_has_permission(admin_id, perm_key: str) -> bool:
+    """Check if an admin has a specific permission (super admin always yes)"""
+    if is_super_admin(admin_id):
+        return True
+    adm = admins_col.find_one({"user_id": int(admin_id)})
+    if not adm:
+        return False
+    perms = adm.get("permissions", {})
+    return perms.get(perm_key, True)
 
 def show_country_management(chat_id):
     if not is_admin(chat_id):
@@ -3915,21 +4583,26 @@ def ask_country_price(message):
         user_data = user_states.get(message.chat.id)
         country_name = user_data.get("country_name")
         
+        flag = get_country_flag(country_name)
+        display_name = f"{flag} {country_name}"
+
         country_data = {
-            "name": country_name,
+            "name": display_name,
             "price": price,
             "status": "active",
             "created_at": datetime.utcnow(),
-            "created_by": message.from_user.id
+            "created_by": message.from_user.id,
+            "flag": flag
         }
         countries_col.insert_one(country_data)
-        
+
         del user_states[message.chat.id]
         bot.send_message(
             message.chat.id,
             f"✅ **Country Added Successfully!**\n\n"
-            f"🌍 Country: {country_name}\n"
-            f"💰 Price: {format_currency(price)}\n\n"
+            f"{flag} Country: {country_name}\n"
+            f"💰 Price: {format_currency(price)}\n"
+            f"🏷 Saved as: {display_name}\n\n"
             f"Country is now available for users to purchase accounts."
         )
         show_country_management(message.chat.id)
@@ -4016,9 +4689,21 @@ def ask_ban_user(message):
             "banned_at": datetime.utcnow()
         }
         banned_users_col.insert_one(ban_record)
-        
+
+        try:
+            _bu = users_col.find_one({"user_id": user_id_to_ban}) or {}
+            _adm_u = users_col.find_one({"user_id": message.from_user.id}) or {}
+            log_personal_ban_async(
+                user_id=user_id_to_ban,
+                username=_bu.get("username") or "",
+                action="banned",
+                admin_name=_adm_u.get("name") or f"Admin {message.from_user.id}"
+            )
+        except:
+            pass
+
         bot.send_message(message.chat.id, f"✅ User {user_id_to_ban} has been banned.")
-        
+
         try:
             bot.send_message(
                 user_id_to_ban,
@@ -4062,6 +4747,38 @@ def ask_unban_user(message):
             pass
     except ValueError:
         bot.send_message(message.chat.id, "❌ Invalid user ID. Please enter numeric ID only.")
+
+def _run_mongo_cleanup():
+    """Clean expired/old data from MongoDB collections"""
+    from datetime import timedelta
+    now = datetime.utcnow()
+
+    # Remove OTP sessions older than 2 hours
+    otp_cutoff = now - timedelta(hours=2)
+    r1 = otp_sessions_col.delete_many({"created_at": {"$lt": otp_cutoff}}) if hasattr(otp_sessions_col, 'delete_many') else type('r', (), {'deleted_count': 0})()
+
+    # Remove used accounts older than 30 days
+    acc_cutoff = now - timedelta(days=30)
+    r2 = accounts_col.delete_many({"used": True, "used_at": {"$lt": acc_cutoff}})
+
+    # Remove old processed recharge requests (>60 days)
+    rech_cutoff = now - timedelta(days=60)
+    r3 = recharges_col.delete_many({
+        "status": {"$in": ["approved", "cancelled"]},
+        "processed_at": {"$lt": rech_cutoff}
+    })
+
+    # Remove old orders (>60 days)
+    order_cutoff = now - timedelta(days=60)
+    r4 = orders_col.delete_many({"created_at": {"$lt": order_cutoff}})
+
+    return {
+        "otp_sessions": r1.deleted_count if hasattr(r1, 'deleted_count') else 0,
+        "used_accounts": r2.deleted_count,
+        "old_recharges": r3.deleted_count,
+        "old_orders": r4.deleted_count
+    }
+
 
 def show_user_ranking(chat_id):
     if not is_admin(chat_id):
@@ -4191,12 +4908,22 @@ def broadcast_worker(source_msg, pin_silent, pin_loud, send_to_users, admin_chat
         all_chats = []
         chat_ids = set()
         
-        # 1. Get all users (negative IDs are groups)
+        # 1. Get all users (including admins — they should also receive broadcast)
         all_users = list(users_col.find())
         for user in all_users:
             uid = user.get("user_id")
-            if uid and uid != ADMIN_ID and uid != admin_id:
+            if uid:
                 chat_ids.add(uid)
+
+        # Also include all registered admins
+        try:
+            all_admins = list(admins_col.find())
+            for adm in all_admins:
+                aid = adm.get("user_id")
+                if aid:
+                    chat_ids.add(aid)
+        except:
+            pass
         
         # 2. Get all served chats if collection exists
         try:
@@ -4211,9 +4938,9 @@ def broadcast_worker(source_msg, pin_silent, pin_loud, send_to_users, admin_chat
         
         all_chats = list(chat_ids)
         
-        # Separate groups and users
+        # Separate groups and users (admins are also included in users now)
         groups = [cid for cid in all_chats if str(cid).startswith('-')]
-        users = [cid for cid in all_chats if not str(cid).startswith('-') and cid != ADMIN_ID and cid != admin_id]
+        users = [cid for cid in all_chats if not str(cid).startswith('-')]
         
         # Update status
         bot.edit_message_text(
@@ -4432,40 +5159,61 @@ def process_user_message(msg, target_user_id):
 # COUNTRY SELECTION FUNCTIONS
 # ---------------------------------------------------------------------
 
-def show_countries(chat_id):
+def show_countries(chat_id, page=1):
     if not has_user_joined_channels(chat_id):
         start(bot.send_message(chat_id, "/start"))
         return
-    
+
     countries = get_all_countries()
     if not countries:
-        text = "🌍 **Select Country**\n\n❌ No countries available right now. Please check back later."
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_menu"))
-        
-        sent_msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+        sent_msg = bot.send_message(
+            chat_id,
+            "🌍 <b>Select Country</b>\n\n❌ No countries available right now.",
+            reply_markup=markup, parse_mode="HTML"
+        )
         user_last_message[chat_id] = sent_msg.message_id
         return
-    
-    text = "🌍 **Select Country**\n\nChoose your country:"
-    markup = InlineKeyboardMarkup(row_width=2)
-    
-    row = []
-    for i, country in enumerate(countries):
-        row.append(InlineKeyboardButton(
-            country['name'],
-            callback_data=f"country_raw_{country['name']}"
-        ))
-        if len(row) == 2:
-            markup.add(*row)
-            row = []
-    
-    if row:
-        markup.add(*row)
-    
-    markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_menu"))
-    
-    sent_msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+
+    PAGE_SIZE = 5
+    total = len(countries)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * PAGE_SIZE
+    page_countries = countries[start_idx:start_idx + PAGE_SIZE]
+
+    bal = get_balance(chat_id)
+    text = (
+        "🛒 <b>Buy SpamFree Telegram accounts:</b>\n"
+        "━━━━━━━━━━━━━━━━\n\n"
+        f"• <b>Total balance:</b> {format_currency(bal)}\n"
+        f"• <b>Server:</b> Server (1)\n"
+        f"• <b>Page {page} of {total_pages}</b>\n"
+        f"<a href='https://t.me/+IV9iBTi_CSBlODU8'>✅ Successful Purchases</a>"
+    )
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    for country in page_countries:
+        acnt = get_available_accounts_count(country['name'])
+        btn_text = f"{country['name']} | {format_currency(country['price'])}"
+        if acnt == 0:
+            btn_text += " ❌"
+        markup.add(InlineKeyboardButton(btn_text, callback_data=f"country_raw_{country['name']}"))
+
+    # Pagination row
+    nav_btns = []
+    if page > 1:
+        nav_btns.append(InlineKeyboardButton("◀️ Prev", callback_data=f"countries_page_{page - 1}"))
+    if page < total_pages:
+        nav_btns.append(InlineKeyboardButton("▶️ Next", callback_data=f"countries_page_{page + 1}"))
+    if nav_btns:
+        markup.add(*nav_btns)
+
+    markup.add(InlineKeyboardButton("🏠 Home", callback_data="back_to_menu"))
+
+    sent_msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML",
+                                disable_web_page_preview=True)
     user_last_message[chat_id] = sent_msg.message_id
 
 def show_country_details(user_id, country_name, chat_id, message_id, callback_id):
@@ -4474,48 +5222,46 @@ def show_country_details(user_id, country_name, chat_id, message_id, callback_id
         if not country:
             bot.answer_callback_query(callback_id, "❌ Country not found", show_alert=True)
             return
-        
+
         accounts_count = get_available_accounts_count(country_name)
-        
-        # WITH EXPANDABLE BLOCKQUOTE - UI STYLE
-        text = f"""⚡ <b>Telegram Account Info</b>
+        bal = get_balance(user_id)
+        flag = get_country_flag(country_name)
 
-<blockquote>🌍 Country : {country_name}
-💸 Price : {format_currency(country['price'])}
-📦 Available : {accounts_count}
+        text = (
+            f"<blockquote>"
+            f"🌍 <b>Country:</b> {country_name} {flag}\n"
+            f"📦 <b>Stock:</b> {accounts_count} accounts\n"
+            f"💰 <b>Price:</b> {format_currency(country['price'])}"
+            f"</blockquote>\n\n"
+            f"💵 <b>Your Balance:</b> {format_currency(bal)}\n\n"
+        )
 
-🔍 Reliable | Affordable | Good Quality
+        if bal < country['price']:
+            shortage = country['price'] - bal
+            text += (
+                f"❌ <b>Insufficient Balance!</b>\n"
+                f"Shortage: {format_currency(shortage)}\n\n"
+            )
 
-⚠️ Use Telegram X only to login.
-🚫 Not responsible for freeze / ban.</blockquote>"""
-        
-        markup = InlineKeyboardMarkup(row_width=2)
-        
+        markup = InlineKeyboardMarkup(row_width=1)
         if accounts_count > 0:
             accounts = list(accounts_col.find({
-                "country": country_name,
-                "status": "active",
-                "used": False
+                "country": country_name, "status": "active", "used": False
             }))
-            markup.add(InlineKeyboardButton(
-                "🛒 Buy Account",
-                callback_data=f"buy_{accounts[0]['_id']}" if accounts else "out_of_stock"
-            ))
+            buy_cb = f"buy_{accounts[0]['_id']}" if accounts else "out_of_stock"
+            markup.add(InlineKeyboardButton("🛒 Buy Account", callback_data=buy_cb))
         else:
-            markup.add(InlineKeyboardButton(
-                "🛒 Buy Account",
-                callback_data="out_of_stock"
-            ))
-        
-        markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_countries"))
-        
-        edit_or_resend(
-            chat_id,
-            message_id,
-            text,
-            markup=markup,
-            parse_mode="HTML"
+            markup.add(InlineKeyboardButton("❌ Out of Stock", callback_data="out_of_stock"))
+
+        if bal < country['price']:
+            markup.add(InlineKeyboardButton("💳 Recharge", callback_data="recharge"))
+
+        markup.add(
+            InlineKeyboardButton("⬅️ Back", callback_data="back_to_countries"),
+            InlineKeyboardButton("🏠 Home", callback_data="back_to_menu")
         )
+
+        edit_or_resend(chat_id, message_id, text, markup=markup, parse_mode="HTML")
     except Exception as e:
         logger.error(f"Country details error: {e}")
         bot.answer_callback_query(callback_id, "❌ Error loading country details", show_alert=True)
@@ -4626,33 +5372,58 @@ def process_purchase(user_id, account_id, chat_id, message_id, callback_id):
         thread = threading.Thread(target=start_simple_monitoring, daemon=True)
         thread.start()
         
-        account_details = f"""✅ **Purchase Successful!** 
+        phone = account.get('phone', 'N/A')
+        fa_pass = account.get('two_step_password', '')
+        fa_line = f"\n🔐 <b>2FA Password:</b> <code>{fa_pass}</code>" if fa_pass else ""
+        remaining_bal = get_balance(user_id)
 
-🌍 Country: {account['country']}
-💸 Price: {format_currency(price)}
-📱 Phone Number: {account.get('phone', 'N/A')}"""
-        
-        if account.get('two_step_password'):
-            account_details += f"\n🔒 2FA Password: `{account.get('two_step_password', 'N/A')}`"
-        
-        account_details += f"\n\n📲 **Instructions:**\n"
-        account_details += f"1. Open Telegram X app\n"
-        account_details += f"2. Enter phone number: `{account.get('phone', 'N/A')}`\n"
-        account_details += f"3. Click 'Next'\n"
-        account_details += f"4. **Click 'Get OTP' button below when you need OTP**\n\n"
-        account_details += f"⏳ OTP available for 30 minutes"
-        
-        get_otp_markup = InlineKeyboardMarkup()
-        get_otp_markup.add(InlineKeyboardButton("🔢 Get OTP", callback_data=f"get_otp_{session_id}"))
-        
-        account_details += f"\n💰 Remaining Balance: {format_currency(get_balance(user_id))}"
-        
+        account_details = (
+            "✅ <b>Purchase Successful!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"<blockquote>"
+            f"🌍 <b>Country:</b> {account['country']}\n"
+            f"💸 <b>Price:</b> {format_currency(price)}\n"
+            f"📱 <b>Phone:</b> <code>{phone}</code>{fa_line}\n"
+            f"💰 <b>Balance Left:</b> {format_currency(remaining_bal)}"
+            f"</blockquote>\n\n"
+            "📲 <b>Instructions:</b>\n"
+            "1️⃣ Open <b>Telegram X</b> app\n"
+            f"2️⃣ Enter phone: <code>{phone}</code>\n"
+            "3️⃣ Click <b>Next</b> → then click <b>Get OTP</b> below\n\n"
+            "⏳ OTP valid for <b>30 minutes</b>\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "💬 Join our community for updates:\n"
+            "<a href='https://t.me/+IV9iBTi_CSBlODU8'>👥 Legend OTP Community</a>"
+        )
+
+        get_otp_markup = InlineKeyboardMarkup(row_width=2)
+        get_otp_markup.add(
+            InlineKeyboardButton("🔢 Get OTP", callback_data=f"get_otp_{session_id}"),
+            InlineKeyboardButton("🏠 Home", callback_data="back_to_menu")
+        )
+        get_otp_markup.add(
+            InlineKeyboardButton("👥 Join Community", url="https://t.me/+IV9iBTi_CSBlODU8")
+        )
+
+        # Personal log — full detail
+        try:
+            udata = users_col.find_one({"user_id": user_id}) or {}
+            log_personal_purchase_async(
+                user_id=user_id,
+                username=udata.get("username", ""),
+                country=account['country'],
+                price=price,
+                phone=phone
+            )
+        except:
+            pass
+
         sent_msg = edit_or_resend(
             chat_id,
             message_id,
             account_details,
             markup=get_otp_markup,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
         
         if sent_msg:
@@ -4670,6 +5441,31 @@ def process_purchase(user_id, account_id, chat_id, message_id, callback_id):
 # =============================================================
 # RESTART COMMAND (VPS + HEROKU SAFE)
 # =============================================================
+
+@bot.message_handler(commands=['cleanmongo'])
+def cmd_cleanmongo(message):
+    user_id = message.from_user.id
+    if not is_super_admin(user_id):
+        bot.reply_to(message, "❌ Only owner can run this command.")
+        return
+    markup = InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        InlineKeyboardButton("✅ Yes, Clean Now", callback_data="cleanmongo_run"),
+        InlineKeyboardButton("❌ Cancel", callback_data="admin_panel")
+    )
+    bot.send_message(
+        message.chat.id,
+        "⚠️ <b>MongoDB Cleanup</b>\n\n"
+        "This will delete:\n"
+        "• OTP sessions older than 2 hours\n"
+        "• Used accounts older than 30 days\n"
+        "• Old recharge records older than 60 days\n"
+        "• Old orders older than 60 days\n\n"
+        "<b>Confirm?</b>",
+        reply_markup=markup,
+        parse_mode="HTML"
+    )
+
 
 @bot.message_handler(commands=['restart'])
 def restart_bot(message):
@@ -4695,20 +5491,32 @@ def restart_bot(message):
 @bot.message_handler(func=lambda m: True, content_types=['text','photo','video','document'])
 def chat_handler(msg):
     user_id = msg.from_user.id
-    
+
+    # ── Security gate ──────────────────────────────────────────────
+    if _is_security_blocked(user_id):
+        return
+    if not is_admin(user_id):
+        if _check_honeypot(user_id, msg.text or ""):
+            bot.send_message(msg.chat.id, "⚠️ Invalid command.", parse_mode=None)
+            return
+        if _is_rate_limited(user_id):
+            bot.send_message(msg.chat.id, "🚦 Too many messages. Please slow down.")
+            return
+    # ───────────────────────────────────────────────────────────────
+
     # Check if user is in admin add flow
     if user_id in admin_add_state:
         handle_add_admin_userid(msg)
         return
-    
+
     # Check if user is in admin remove flow
     if user_id in admin_remove_state:
         handle_remove_admin_userid(msg)
         return
-    
+
     if is_admin(user_id) and user_id in admin_deduct_state:
         pass
-    
+
     if is_user_banned(user_id):
         return
     
