@@ -55,6 +55,22 @@ QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', '')
 FAMPAY_QR_URL = os.getenv('FAMPAY_QR_URL', '')
 FAMPAY_UPI_ID = os.getenv('FAMPAY_UPI_ID', '')
 
+# AUTO PAYMENT VERIFICATION APIs
+# --- FamPay Auto Verify ---
+FAMPAY_API_KEY = os.getenv('FAMPAY_API_KEY', '')
+FAMPAY_API_SECRET = os.getenv('FAMPAY_API_SECRET', '')
+FAMPAY_API_URL = os.getenv('FAMPAY_API_URL', '')  # e.g. https://api.fampay.in/v1/
+
+# --- UPI Auto Verify (Cashfree / Razorpay / custom) ---
+UPI_VERIFY_API_KEY = os.getenv('UPI_VERIFY_API_KEY', '')
+UPI_VERIFY_API_SECRET = os.getenv('UPI_VERIFY_API_SECRET', '')
+UPI_VERIFY_API_URL = os.getenv('UPI_VERIFY_API_URL', '')  # your UTR verify endpoint
+
+# --- Generic Payment Gateway (optional) ---
+PAYMENT_GATEWAY_KEY = os.getenv('PAYMENT_GATEWAY_KEY', '')
+PAYMENT_GATEWAY_SECRET = os.getenv('PAYMENT_GATEWAY_SECRET', '')
+PAYMENT_GATEWAY_URL = os.getenv('PAYMENT_GATEWAY_URL', '')
+
 # CRYPTO CONFIG
 CRYPTO_USDT_ADDRESS = os.getenv('CRYPTO_USDT_ADDRESS', '')
 CRYPTO_NETWORK = os.getenv('CRYPTO_NETWORK', 'TRC20')
@@ -3708,30 +3724,160 @@ def process_recharge_amount(msg):
         bot.register_next_step_handler(msg, process_recharge_amount)
 
 # FIXED UTR HANDLER - Now properly checks and stores in database
+def auto_verify_utr(utr: str, amount: float, method: str = "upi") -> dict:
+    """
+    Auto-verify a UTR/transaction using configured payment API.
+    Returns: {"verified": True/False, "message": str, "txn_data": dict}
+    
+    Fill in API logic below based on your provider.
+    """
+    import requests as _req
+
+    result = {"verified": False, "message": "Manual verification required", "txn_data": {}}
+
+    # ── FamPay Auto Verify ──────────────────────────────────────────
+    if method == "fampay" and FAMPAY_API_KEY and FAMPAY_API_URL:
+        try:
+            resp = _req.post(
+                f"{FAMPAY_API_URL.rstrip('/')}/verify_utr",  # adjust endpoint as needed
+                headers={
+                    "x-api-key": FAMPAY_API_KEY,
+                    "x-api-secret": FAMPAY_API_SECRET,
+                    "Content-Type": "application/json"
+                },
+                json={"utr": utr, "amount": amount},
+                timeout=10
+            )
+            data = resp.json()
+            if resp.status_code == 200 and data.get("success"):
+                result["verified"] = True
+                result["message"] = "✅ FamPay: Payment verified automatically"
+                result["txn_data"] = data
+            else:
+                result["message"] = f"FamPay: {data.get('message', 'Not verified')}"
+        except Exception as e:
+            result["message"] = f"FamPay API error: {e}"
+
+    # ── UPI Auto Verify (Cashfree / Razorpay / custom) ─────────────
+    elif UPI_VERIFY_API_KEY and UPI_VERIFY_API_URL:
+        try:
+            resp = _req.post(
+                UPI_VERIFY_API_URL,
+                headers={
+                    "x-api-key": UPI_VERIFY_API_KEY,
+                    "x-api-secret": UPI_VERIFY_API_SECRET,
+                    "Content-Type": "application/json"
+                },
+                json={"utr": utr, "amount": amount},
+                timeout=10
+            )
+            data = resp.json()
+            if resp.status_code == 200 and data.get("success"):
+                result["verified"] = True
+                result["message"] = "✅ Payment verified automatically"
+                result["txn_data"] = data
+            else:
+                result["message"] = data.get("message", "Not verified")
+        except Exception as e:
+            result["message"] = f"UPI verify API error: {e}"
+
+    # ── Generic Payment Gateway ─────────────────────────────────────
+    elif PAYMENT_GATEWAY_KEY and PAYMENT_GATEWAY_URL:
+        try:
+            resp = _req.post(
+                PAYMENT_GATEWAY_URL,
+                headers={
+                    "Authorization": f"Bearer {PAYMENT_GATEWAY_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={"utr": utr, "amount": amount},
+                timeout=10
+            )
+            data = resp.json()
+            if resp.status_code == 200 and data.get("success"):
+                result["verified"] = True
+                result["message"] = "✅ Payment verified automatically"
+                result["txn_data"] = data
+            else:
+                result["message"] = data.get("message", "Not verified")
+        except Exception as e:
+            result["message"] = f"Gateway API error: {e}"
+
+    return result
+
+
 @bot.message_handler(func=lambda m: upi_payment_states.get(m.from_user.id, {}).get("step") == "waiting_utr")
 def handle_utr_input(msg):
     user_id = msg.from_user.id
-    
+
     if user_id not in upi_payment_states or upi_payment_states[user_id]["step"] != "waiting_utr":
         return
-    
+
     utr = msg.text.strip()
-    
+
     if not utr.isdigit() or len(utr) != 12:
         bot.send_message(msg.chat.id, "❌ Invalid UTR. Please enter a valid 12-digit UTR number:")
         return
-    
-    # Store UTR and move to screenshot step
+
+    # Store UTR
     upi_payment_states[user_id]["utr"] = utr
+    method = recharge_method_state.get(user_id, "upi")
+    amount = upi_payment_states[user_id].get("amount", 0)
+
+    # Try auto-verification
+    any_api_set = any([FAMPAY_API_KEY, UPI_VERIFY_API_KEY, PAYMENT_GATEWAY_KEY])
+    if any_api_set:
+        bot.send_message(msg.chat.id, "⏳ <b>Auto-verifying payment...</b>", parse_mode="HTML")
+        verify_result = auto_verify_utr(utr, amount, method=method)
+
+        if verify_result["verified"]:
+            # Auto-approve: add balance directly
+            req_id = f"R{int(time.time())}{user_id}"
+            recharge_data = {
+                "user_id": user_id, "amount": amount, "status": "approved",
+                "created_at": datetime.utcnow(), "method": method, "utr": utr,
+                "req_id": req_id, "auto_verified": True,
+                "txn_data": verify_result.get("txn_data", {})
+            }
+            recharges_col.insert_one(recharge_data)
+            add_balance(user_id, amount)
+            upi_payment_states.pop(user_id, None)
+            try:
+                log_recharge_approved_async(user_id=user_id, amount=amount, method=method, utr=utr)
+                _u = users_col.find_one({"user_id": user_id}) or {}
+                log_personal_deposit_approved_async(
+                    user_id=user_id, username=_u.get("username") or "",
+                    amount=amount, method=method, utr=utr, admin_name="Auto-Verify"
+                )
+            except:
+                pass
+            new_bal = get_balance(user_id)
+            bot.send_message(
+                msg.chat.id,
+                f"✅ <b>Payment Auto-Verified!</b>\n\n"
+                f"<blockquote>💰 Amount: <b>{format_currency(amount)}</b>\n"
+                f"🔢 UTR: <code>{utr}</code>\n"
+                f"💳 New Balance: <b>{format_currency(new_bal)}</b></blockquote>",
+                parse_mode="HTML"
+            )
+            return
+        else:
+            bot.send_message(
+                msg.chat.id,
+                f"ℹ️ {verify_result['message']}\n\nPlease send your payment screenshot:",
+                parse_mode="HTML"
+            )
+    else:
+        bot.send_message(
+            msg.chat.id,
+            "✅ <b>UTR Received!</b>\n\n"
+            "📸 <b>Step 2: Send Screenshot</b>\n\n"
+            "Send payment screenshot from your bank app:\n"
+            "<i>(Must show amount, date, and UTR)</i>",
+            parse_mode="HTML"
+        )
+
     upi_payment_states[user_id]["step"] = "waiting_screenshot"
-    
-    bot.send_message(
-        msg.chat.id,
-        "✅ UTR Received!\n\n"
-        "📸 Step 2: Send Screenshot\n\n"
-        "Now please send the payment screenshot from your bank app:\n"
-        "_(Make sure screenshot shows amount, date, and UTR)_"
-    )
 
 # FIXED SCREENSHOT HANDLER - Now properly saves to database
 @bot.message_handler(content_types=['photo'], func=lambda m: upi_payment_states.get(m.from_user.id, {}).get("step") == "waiting_screenshot")
