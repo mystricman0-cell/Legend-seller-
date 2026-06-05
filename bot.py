@@ -3688,23 +3688,30 @@ def show_recharge_methods(chat_id, message_id, user_id):
 # ---------------------------------------------------------------------
 
 def fampay_generate_qr(amount: float):
-    """Generate FamPay QR/order via your website API"""
+    """Generate FamPay QR/order via website API
+    Response: {"status":"success","data":{"order_id":"FAMPAY...","qr_url":"...","upi_id":"..."}}
+    """
     try:
         url = f"{FAMPAY_BASE_URL.rstrip('/')}/api/qr?api={FAMPAY_API_KEY}&amount={int(amount)}"
         resp = requests.get(url, timeout=15)
-        data = resp.json()
-        return data  # contains order_id, qr_url
+        raw = resp.json()
+        # API returns nested: {"status":"success","data":{...}}
+        if raw.get("status") == "success" and "data" in raw:
+            return raw["data"]  # flat dict with order_id, qr_url, upi_id, amount
+        logger.error(f"FamPay QR unexpected response: {raw}")
+        return None
     except Exception as e:
         logger.error(f"FamPay QR generation error: {e}")
         return None
 
 def fampay_verify_payment(order_id: str):
-    """Check payment status for a FamPay order"""
+    """Check payment status for a FamPay order
+    Response: {"status":"pending/success/expired","order_id":"...","expires_in_ms":...}
+    """
     try:
         url = f"{FAMPAY_BASE_URL.rstrip('/')}/api/verify?api_key={FAMPAY_API_KEY}&order_id={order_id}"
         resp = requests.get(url, timeout=15)
-        data = resp.json()
-        return data  # status: pending / success / expired
+        return resp.json()  # flat: status is top-level
     except Exception as e:
         logger.error(f"FamPay verify error: {e}")
         return None
