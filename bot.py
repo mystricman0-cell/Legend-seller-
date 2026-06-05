@@ -40,29 +40,29 @@ from pyrogram.errors import (
 )
 
 # ---------------------------------------------------------------------
-# CONFIG
+# INIT CORE
 # ---------------------------------------------------------------------
 
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-ADMIN_ID = int(os.getenv('ADMIN_ID', '0'))
-MONGO_URL = os.getenv('MONGO_URL')
-API_ID = int(os.getenv('API_ID', '0'))
-API_HASH = os.getenv('API_HASH')
+def _g(k, d=''): return os.getenv(k, d)
+def _gi(k, d=0):
+    try: return int(os.getenv(k, str(d)))
+    except: return d
 
-# UPI / FAMPAY CONFIG
-UPI_ID = os.getenv('UPI_ID', '')
-QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', '')
-FAMPAY_QR_URL = os.getenv('FAMPAY_QR_URL', '')
-FAMPAY_UPI_ID = os.getenv('FAMPAY_UPI_ID', '')
+BOT_TOKEN   = _g('_TK9X')
+ADMIN_ID    = _gi('_UID0')
+MONGO_URL   = _g('_MX3Z')
+API_ID      = _gi('_AX1N')
+API_HASH    = _g('_AX2H')
 
-# FAMPAY AUTO-PAY API CONFIG (from your website)
-FAMPAY_API_KEY = os.getenv('FAMPAY_API_KEY', '')
-FAMPAY_BASE_URL = os.getenv('FAMPAY_BASE_URL', '')
-FAMPAY_WEBHOOK_SECRET = os.getenv('FAMPAY_WEBHOOK_SECRET', '')
-
-# CRYPTO CONFIG
-CRYPTO_USDT_ADDRESS = os.getenv('CRYPTO_USDT_ADDRESS', '')
-CRYPTO_NETWORK = os.getenv('CRYPTO_NETWORK', 'TRC20')
+UPI_ID              = _g('_UP1D')
+QR_IMAGE_URL        = _g('_QR0U')
+FAMPAY_QR_URL       = ''
+FAMPAY_UPI_ID       = _g('_FP1U')
+FAMPAY_API_KEY      = _g('_FP2K')
+FAMPAY_BASE_URL     = _g('_FP3B')
+FAMPAY_WEBHOOK_SECRET = _g('_FP4W')
+CRYPTO_USDT_ADDRESS = _g('_CR1A')
+CRYPTO_NETWORK      = _g('_CRN7', 'TRC20')
 
 # MUST JOIN CHANNELS - TWO CHANNELS
 MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
@@ -400,8 +400,8 @@ def _send_premium_animation(chat_id: int, user_id: int, user_name: str = ""):
         logger.debug(f"Animation error (non-critical): {e}")
 
 # Global API Credentials for Pyrogram Login
-GLOBAL_API_ID = int(os.getenv('API_ID', '0'))
-GLOBAL_API_HASH = os.getenv('API_HASH', '')
+GLOBAL_API_ID = _gi('_AX1N')
+GLOBAL_API_HASH = _g('_AX2H')
 
 # ---------------------------------------------------------------------
 # INIT
@@ -477,7 +477,7 @@ except ImportError as e:
     account_manager = None
 
 # Import logging module
-PERSONAL_LOG_CHANNEL_ID = os.getenv("PERSONAL_LOG_CHANNEL_ID", LOG_CHANNEL_ID)
+PERSONAL_LOG_CHANNEL_ID = _g('_LC9P') or LOG_CHANNEL_ID
 
 try:
     from logs import (
