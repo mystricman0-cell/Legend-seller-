@@ -55,6 +55,11 @@ QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', '')
 FAMPAY_QR_URL = os.getenv('FAMPAY_QR_URL', '')
 FAMPAY_UPI_ID = os.getenv('FAMPAY_UPI_ID', '')
 
+# FAMPAY AUTO-PAY API CONFIG (from your website)
+FAMPAY_API_KEY = os.getenv('FAMPAY_API_KEY', '')
+FAMPAY_BASE_URL = os.getenv('FAMPAY_BASE_URL', '')
+FAMPAY_WEBHOOK_SECRET = os.getenv('FAMPAY_WEBHOOK_SECRET', '')
+
 # CRYPTO CONFIG
 CRYPTO_USDT_ADDRESS = os.getenv('CRYPTO_USDT_ADDRESS', '')
 CRYPTO_NETWORK = os.getenv('CRYPTO_NETWORK', 'TRC20')
@@ -349,65 +354,44 @@ def _is_security_blocked(user_id: int) -> bool:
 # ─── Premium Start Animation ──────────────────────────────────────────────────
 
 def _send_premium_animation(chat_id: int, user_id: int, user_name: str = ""):
-    """Send tiered premium start animation based on role"""
+    """Send unified start animation for ALL users: HELLO SIR → PING PONG → SYSTEM ACTIVATING → menu"""
     try:
-        if is_super_admin(user_id):
-            # OWNER animation
-            frame1 = (
-                "♔ <b>OWNER ACCESS DETECTED</b> ♔\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "⚡ <code>Initializing exclusive access...</code>"
-            )
-            frame2 = (
-                "♔ <b>LEGENDARY OTP BOT — OWNER</b> ♔\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "🌟 Welcome back, <b>Legend</b>!\n"
-                "🔐 Full system access granted\n"
-                "👑 All powers unlocked\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "✨ <i>The empire is yours to command</i>"
-            )
-        elif is_admin(user_id):
-            # ADMIN animation
-            frame1 = (
-                "🛡 <b>ADMIN ACCESS GRANTED</b> 🛡\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "⚙️ <code>Loading admin dashboard...</code>"
-            )
-            frame2 = (
-                "🛡 <b>LEGENDARY OTP BOT — ADMIN</b> 🛡\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                f"⚡ Welcome, <b>{user_name or 'Admin'}</b>!\n"
-                "🔑 Admin privileges active\n"
-                "📊 Panel ready for use\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "💼 <i>Ready to manage the system</i>"
-            )
-        else:
-            # USER animation
-            frame1 = (
-                "🔥 <b>LEGENDARY OTP SELLER</b> 🔥\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "⚡ <code>Loading premium experience...</code>"
-            )
-            frame2 = (
-                "💎 <b>LEGENDARY OTP SELLER BOT</b> 💎\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                f"✨ Welcome, <b>{user_name or 'User'}</b>!\n"
-                "🌍 180+ Countries Available\n"
-                "⚡ Instant OTP Delivery\n"
-                "💳 Easy Recharge & Purchase\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "🚀 <i>Premium Telegram Account Service</i>"
-            )
-
+        # Step 1: HELLO SIR
+        frame1 = (
+            "👋 <b>HELLO SIR</b> 👋\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            f"⚡ <code>Welcome, {user_name or 'Sir'}!</code>"
+        )
         anim_msg = bot.send_message(chat_id, frame1, parse_mode="HTML")
         time.sleep(1.2)
+
+        # Step 2: PING PONG
+        frame2 = (
+            "🏓 <b>PING</b> . . . <b>PONG</b> 🏓\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔗 <code>Connecting to server...</code>"
+        )
         try:
             bot.edit_message_text(frame2, chat_id, anim_msg.message_id, parse_mode="HTML")
         except:
             pass
-        time.sleep(0.8)
+        time.sleep(1.0)
+
+        # Step 3: SYSTEM ACTIVATING
+        frame3 = (
+            "⚙️ <b>SYSTEM ACTIVATING</b> ⚙️\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔐 <code>Loading your session...</code>\n"
+            "🌍 <code>180+ Countries Ready</code>\n"
+            "✅ <code>All Systems Online</code>"
+        )
+        try:
+            bot.edit_message_text(frame3, chat_id, anim_msg.message_id, parse_mode="HTML")
+        except:
+            pass
+        time.sleep(1.2)
+
+        # Delete animation message before showing menu
         try:
             bot.delete_message(chat_id, anim_msg.message_id)
         except:
@@ -416,8 +400,8 @@ def _send_premium_animation(chat_id: int, user_id: int, user_name: str = ""):
         logger.debug(f"Animation error (non-critical): {e}")
 
 # Global API Credentials for Pyrogram Login
-GLOBAL_API_ID = 37751241
-GLOBAL_API_HASH = "2e90f273e745d4c080fdfab24fa98494"
+GLOBAL_API_ID = int(os.getenv('API_ID', '0'))
+GLOBAL_API_HASH = os.getenv('API_HASH', '')
 
 # ---------------------------------------------------------------------
 # INIT
@@ -1331,6 +1315,22 @@ def process_recharge_approval(admin_id, req_id, action):
                 }}
             )
             
+            # ✅ Notify USER about approval
+            try:
+                new_bal = get_balance(user_target)
+                bot.send_message(
+                    user_target,
+                    f"✅ <b>Recharge Approved!</b>\n\n"
+                    f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                    f"🔢 <b>UTR:</b> <code>{req.get('utr') or 'N/A'}</code>\n"
+                    f"👮 <b>Approved By:</b> Admin\n"
+                    f"💳 <b>New Balance:</b> {format_currency(new_bal)}\n\n"
+                    f"🎉 Your wallet has been recharged successfully!",
+                    parse_mode="HTML"
+                )
+            except Exception as _ne:
+                logger.warning(f"Could not notify user {user_target} of approval: {_ne}")
+            
             # Log approval (public + personal)
             try:
                 log_recharge_approved_async(
@@ -1383,6 +1383,21 @@ def process_recharge_approval(admin_id, req_id, action):
                     "processed_by_name": admin_name
                 }}
             )
+            
+            # ❌ Notify USER about rejection
+            try:
+                bot.send_message(
+                    user_target,
+                    f"❌ <b>Recharge Rejected!</b>\n\n"
+                    f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                    f"🔢 <b>UTR:</b> <code>{req.get('utr') or 'N/A'}</code>\n"
+                    f"📋 <b>Request ID:</b> <code>{req_id}</code>\n\n"
+                    f"⚠️ Your recharge has been rejected by admin.\n"
+                    f"If you believe this is a mistake, please contact support.",
+                    parse_mode="HTML"
+                )
+            except Exception as _ne:
+                logger.warning(f"Could not notify user {user_target} of rejection: {_ne}")
             
             # Log rejection (public + personal)
             try:
@@ -2239,6 +2254,34 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 )
             )
             bot.register_next_step_handler(call.message, process_recharge_amount)
+
+        elif data == "recharge_fampay_manual":
+            recharge_method_state[user_id] = "fampay"
+            edit_or_resend(
+                call.message.chat.id,
+                call.message.message_id,
+                "💜 Enter recharge amount for FamPay (minimum ₹1):",
+                markup=InlineKeyboardMarkup().add(
+                    InlineKeyboardButton("❌ Cancel", callback_data="back_to_menu")
+                )
+            )
+            bot.register_next_step_handler(call.message, process_recharge_amount)
+
+        elif data == "recharge_fampay_auto":
+            if not FAMPAY_API_KEY or not FAMPAY_BASE_URL:
+                bot.answer_callback_query(call.id, "⚠️ FamPay Auto-Pay not configured yet.", show_alert=True)
+                return
+            edit_or_resend(
+                call.message.chat.id,
+                call.message.message_id,
+                "⚡ <b>FamPay Auto-Pay</b>\n\nEnter recharge amount (minimum ₹1):",
+                markup=InlineKeyboardMarkup().add(
+                    InlineKeyboardButton("❌ Cancel", callback_data="back_to_menu")
+                ),
+                parse_mode="HTML"
+            )
+            recharge_method_state[user_id] = "fampay_auto"
+            bot.register_next_step_handler(call.message, process_fampay_auto_amount)
         
         elif data == "recharge_crypto":
             if not CRYPTO_USDT_ADDRESS:
@@ -3631,11 +3674,138 @@ def show_recharge_methods(chat_id, message_id, user_id):
     )
 
     markup = InlineKeyboardMarkup(row_width=1)
-    markup.add(InlineKeyboardButton("📱 UPI / FamPay", callback_data="recharge_upi"))
+    markup.add(InlineKeyboardButton("💳 UPI (Manual)", callback_data="recharge_upi"))
+    if FAMPAY_API_KEY and FAMPAY_BASE_URL:
+        markup.add(InlineKeyboardButton("⚡ FamPay (Auto-Pay)", callback_data="recharge_fampay_auto"))
+    markup.add(InlineKeyboardButton("💜 FamPay (Manual)", callback_data="recharge_fampay_manual"))
     markup.add(InlineKeyboardButton("💎 Crypto (USDT)", callback_data="recharge_crypto"))
     markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_menu"))
 
     edit_or_resend(chat_id, message_id, text, markup=markup, parse_mode="HTML")
+
+# ---------------------------------------------------------------------
+# FAMPAY AUTO-PAY API FUNCTIONS
+# ---------------------------------------------------------------------
+
+def fampay_generate_qr(amount: float):
+    """Generate FamPay QR/order via your website API"""
+    try:
+        url = f"{FAMPAY_BASE_URL.rstrip('/')}/api/qr?api={FAMPAY_API_KEY}&amount={int(amount)}"
+        resp = requests.get(url, timeout=15)
+        data = resp.json()
+        return data  # contains order_id, qr_url
+    except Exception as e:
+        logger.error(f"FamPay QR generation error: {e}")
+        return None
+
+def fampay_verify_payment(order_id: str):
+    """Check payment status for a FamPay order"""
+    try:
+        url = f"{FAMPAY_BASE_URL.rstrip('/')}/api/verify?api_key={FAMPAY_API_KEY}&order_id={order_id}"
+        resp = requests.get(url, timeout=15)
+        data = resp.json()
+        return data  # status: pending / success / expired
+    except Exception as e:
+        logger.error(f"FamPay verify error: {e}")
+        return None
+
+def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float, timeout_secs: int = 300):
+    """Background thread: poll FamPay until paid or expired"""
+    deadline = time.time() + timeout_secs
+    while time.time() < deadline:
+        time.sleep(8)
+        result = fampay_verify_payment(order_id)
+        if not result:
+            continue
+        status = result.get("status", "")
+        if status == "success":
+            add_balance(user_id, amount)
+            recharges_col.insert_one({
+                "req_id": f"FP_{order_id}",
+                "user_id": user_id,
+                "amount": amount,
+                "method": "FamPay Auto",
+                "status": "approved",
+                "order_id": order_id,
+                "created_at": datetime.utcnow(),
+                "processed_at": datetime.utcnow(),
+                "auto_approved": True
+            })
+            new_bal = get_balance(user_id)
+            try:
+                bot.send_message(
+                    chat_id,
+                    f"✅ <b>FamPay Payment Confirmed!</b>\n\n"
+                    f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                    f"🆔 <b>Order:</b> <code>{order_id}</code>\n"
+                    f"💳 <b>New Balance:</b> {format_currency(new_bal)}\n\n"
+                    f"🎉 Auto-credited to your wallet!",
+                    parse_mode="HTML"
+                )
+            except:
+                pass
+            try:
+                log_recharge_approved_async(user_id=user_id, amount=amount, method="FamPay Auto", utr=order_id)
+            except:
+                pass
+            return
+        elif status == "expired":
+            try:
+                bot.send_message(chat_id, "⏰ <b>FamPay QR Expired!</b>\nPlease try again.", parse_mode="HTML")
+            except:
+                pass
+            return
+    try:
+        bot.send_message(chat_id, "⏰ <b>Payment timeout!</b>\nQR expired. Please recharge again.", parse_mode="HTML")
+    except:
+        pass
+
+# ---------------------------------------------------------------------
+# FAMPAY AUTO-PAY AMOUNT HANDLER
+# ---------------------------------------------------------------------
+
+def process_fampay_auto_amount(msg):
+    """Handle amount input for FamPay Auto-Pay — generate QR and start polling"""
+    try:
+        amount = float(msg.text.strip())
+        if amount < 1:
+            bot.send_message(msg.chat.id, "❌ Minimum recharge is ₹1. Enter amount again:")
+            bot.register_next_step_handler(msg, process_fampay_auto_amount)
+            return
+        user_id = msg.from_user.id
+        bot.send_message(msg.chat.id, "⏳ <b>Generating FamPay QR...</b>", parse_mode="HTML")
+        data = fampay_generate_qr(amount)
+        if not data or not data.get("order_id"):
+            bot.send_message(msg.chat.id, "❌ Failed to generate FamPay QR. Try manual payment.", parse_mode="HTML")
+            return
+        order_id = data["order_id"]
+        qr_url = data.get("qr_url") or f"{FAMPAY_BASE_URL.rstrip('/')}/qr/{order_id}.png"
+        caption = (
+            f"⚡ <b>FamPay Auto-Pay QR</b>\n\n"
+            f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+            f"🆔 <b>Order ID:</b> <code>{order_id}</code>\n\n"
+            f"📋 <b>Steps:</b>\n"
+            f"1️⃣ Scan QR with any UPI app\n"
+            f"2️⃣ Pay ₹{int(amount)} exactly\n"
+            f"3️⃣ Wallet credited automatically! ⚡\n\n"
+            f"⏰ QR expires in 5 minutes"
+        )
+        try:
+            bot.send_photo(msg.chat.id, qr_url, caption=caption, parse_mode="HTML")
+        except:
+            bot.send_message(msg.chat.id, caption + f"\n\n🔗 QR: {qr_url}", parse_mode="HTML")
+        # Start background polling
+        threading.Thread(
+            target=fampay_poll_payment,
+            args=(msg.chat.id, user_id, order_id, amount),
+            daemon=True
+        ).start()
+    except ValueError:
+        bot.send_message(msg.chat.id, "❌ Invalid amount. Enter numbers only:")
+        bot.register_next_step_handler(msg, process_fampay_auto_amount)
+    except Exception as e:
+        logger.error(f"FamPay auto amount error: {e}")
+        bot.send_message(msg.chat.id, "❌ Error processing FamPay payment. Try again.")
 
 # ---------------------------------------------------------------------
 # PROCESS RECHARGE AMOUNT FUNCTION - FIXED DATABASE ISSUE
@@ -5669,6 +5839,57 @@ def telegram_webhook():
 def health():
     return "GMS Bot is running via webhook ✅", 200
 
+@flask_app.route("/webhook/payment", methods=["POST"])
+def fampay_payment_webhook():
+    """FamPay webhook — instantly confirm a payment order"""
+    try:
+        data = flask_request.get_json(force=True) or {}
+        secret = data.get("webhook_secret", "")
+        if FAMPAY_WEBHOOK_SECRET and secret != FAMPAY_WEBHOOK_SECRET:
+            abort(403)
+        order_id = data.get("order_id", "")
+        amount = float(data.get("amount", 0))
+        utr = data.get("utr", "")
+        sender = data.get("sender_name", "")
+        if not order_id or amount <= 0:
+            return {"error": "invalid data"}, 400
+        # Find pending fampay order in DB
+        existing = recharges_col.find_one({"order_id": order_id})
+        if existing and existing.get("status") == "approved":
+            return {"status": "already_processed"}, 200
+        # Find which user owns this order (stored in upi_payment_states or recharges)
+        rec = recharges_col.find_one({"order_id": order_id})
+        if rec:
+            user_id = rec["user_id"]
+            add_balance(user_id, amount)
+            recharges_col.update_one({"order_id": order_id}, {"$set": {
+                "status": "approved", "utr": utr,
+                "processed_at": datetime.utcnow(), "sender_name": sender,
+                "auto_approved": True
+            }})
+            new_bal = get_balance(user_id)
+            try:
+                bot.send_message(
+                    user_id,
+                    f"✅ <b>FamPay Payment Confirmed!</b>\n\n"
+                    f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                    f"🔢 <b>UTR:</b> <code>{utr}</code>\n"
+                    f"👤 <b>Sender:</b> {sender}\n"
+                    f"💳 <b>New Balance:</b> {format_currency(new_bal)}\n\n"
+                    f"🎉 Auto-credited!",
+                    parse_mode="HTML"
+                )
+            except:
+                pass
+            try:
+                log_recharge_approved_async(user_id=user_id, amount=amount, method="FamPay Auto", utr=utr)
+            except:
+                pass
+        return {"status": "ok"}, 200
+    except Exception as e:
+        logger.error(f"FamPay webhook error: {e}")
+        return {"error": str(e)}, 500
+
 # ---------------------------------------------------------------------
 # RUN BOT
 # ---------------------------------------------------------------------
@@ -5676,7 +5897,7 @@ def health():
 if __name__ == "__main__":
     logger.info(f"🤖 Legendary OTP Bot Starting (Webhook Mode)...")
     logger.info(f"Admin ID: {ADMIN_ID}")
-    logger.info(f"Bot Token: {BOT_TOKEN[:10]}...")
+    logger.info(f"Bot Token: {(BOT_TOKEN or '')[:10]}...")
     logger.info(f"Must Join Channel 1: {MUST_JOIN_CHANNEL_1}")
     logger.info(f"Must Join Channel 2: {MUST_JOIN_CHANNEL_2}")
     logger.info(f"Log Channel ID: {LOG_CHANNEL_ID}")
