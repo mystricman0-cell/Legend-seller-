@@ -49,9 +49,15 @@ MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://dhruvkumarray3_db_user:Sc1nt6k
 API_ID = int(os.getenv('API_ID', '37751241'))
 API_HASH = os.getenv('API_HASH', '2e90f273e745d4c080fdfab24fa98494')
 
-# UPI PAYMENT CONFIG
-UPI_ID = os.getenv('UPI_ID', 'rishabhkumarray@fam')
-QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', 'https://files.catbox.moe/91ug40.jpg')
+# UPI / FAMPAY CONFIG
+UPI_ID = os.getenv('UPI_ID', '')
+QR_IMAGE_URL = os.getenv('QR_IMAGE_URL', '')
+FAMPAY_QR_URL = os.getenv('FAMPAY_QR_URL', '')
+FAMPAY_UPI_ID = os.getenv('FAMPAY_UPI_ID', '')
+
+# CRYPTO CONFIG
+CRYPTO_USDT_ADDRESS = os.getenv('CRYPTO_USDT_ADDRESS', '')
+CRYPTO_NETWORK = os.getenv('CRYPTO_NETWORK', 'TRC20')
 
 # MUST JOIN CHANNELS - TWO CHANNELS
 MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
@@ -2235,28 +2241,26 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             bot.register_next_step_handler(call.message, process_recharge_amount)
         
         elif data == "recharge_crypto":
-            CRYPTO_ADDRESS = os.getenv("CRYPTO_USDT_ADDRESS", "")
-            CRYPTO_NETWORK = os.getenv("CRYPTO_NETWORK", "TRC20")
-            if not CRYPTO_ADDRESS:
-                bot.answer_callback_query(call.id, "⚠️ Crypto payment not configured yet. Use UPI for now.", show_alert=True)
+            if not CRYPTO_USDT_ADDRESS:
+                bot.answer_callback_query(call.id, "⚠️ Crypto payment not configured yet. Contact admin.", show_alert=True)
                 return
             crypto_text = (
                 "💎 <b>Crypto Payment (USDT)</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"<blockquote>"
+                "<blockquote>"
                 f"🪙 <b>Token:</b> USDT\n"
                 f"🌐 <b>Network:</b> {CRYPTO_NETWORK}\n"
-                f"📋 <b>Address:</b>\n<code>{CRYPTO_ADDRESS}</code>"
-                f"</blockquote>\n\n"
+                f"📋 <b>Address:</b>\n<code>{CRYPTO_USDT_ADDRESS}</code>"
+                "</blockquote>\n\n"
                 "📌 <b>Steps:</b>\n"
-                "1️⃣ Send USDT to address above\n"
+                "1️⃣ Send USDT to the address above\n"
                 "2️⃣ Take screenshot of transaction\n"
                 "3️⃣ Send screenshot + TxID to admin\n\n"
-                "⚠️ <i>Min 1 USDT. Only TRC20/ERC20 supported.\nWrong network = funds lost.</i>"
+                "⚠️ <i>Min 1 USDT. Wrong network = funds lost!</i>"
             )
             markup = InlineKeyboardMarkup(row_width=1)
             markup.add(
-                InlineKeyboardButton("📩 Contact Admin", url=f"https://t.me/{os.getenv('ADMIN_USERNAME', 'rchiex')}"),
+                InlineKeyboardButton("📩 Contact Admin", url=f"https://t.me/{os.getenv('ADMIN_USERNAME', '')}"),
                 InlineKeyboardButton("⬅️ Back", callback_data="recharge")
             )
             edit_or_resend(call.message.chat.id, call.message.message_id, crypto_text, markup=markup, parse_mode="HTML")
@@ -3647,33 +3651,58 @@ def process_recharge_amount(msg):
         
         user_id = msg.from_user.id
         
-        caption = f"""<blockquote>💳 <b>UPI Payment Details</b> 
+        method = recharge_method_state.get(user_id, "upi")
 
-💰 Amount: {format_currency(amount)}
-📱 UPI ID: {UPI_ID}
+        if method == "upi":
+            display_upi = UPI_ID if UPI_ID else "[ UPI ID not set ]"
+            display_qr = QR_IMAGE_URL if QR_IMAGE_URL else None
 
-📋 Instructions:
-1. Scan QR code OR send {format_currency(amount)} to above UPI
-2. After payment, click <b>Deposited ✅</b> button
-3. Follow the steps to submit proof
+            caption = (
+                "<blockquote>💳 <b>UPI Payment Details</b>\n\n"
+                f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                f"📱 <b>UPI ID:</b> <code>{display_upi}</code>\n\n"
+                "📋 <b>Instructions:</b>\n"
+                f"1. Scan QR code OR send {format_currency(amount)} to above UPI\n"
+                "2. After payment, click <b>Deposited ✅</b>\n"
+                "3. Submit UTR + screenshot</blockquote>"
+            )
+        else:
+            display_upi = FAMPAY_UPI_ID if FAMPAY_UPI_ID else "[ FamPay UPI not set ]"
+            display_qr = FAMPAY_QR_URL if FAMPAY_QR_URL else None
 
-</blockquote>"""
-        
+            caption = (
+                "<blockquote>💜 <b>FamPay Payment Details</b>\n\n"
+                f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                f"📱 <b>FamPay UPI:</b> <code>{display_upi}</code>\n\n"
+                "📋 <b>Instructions:</b>\n"
+                f"1. Scan QR OR send {format_currency(amount)} to above ID\n"
+                "2. After payment, click <b>Deposited ✅</b>\n"
+                "3. Submit UTR + screenshot</blockquote>"
+            )
+
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("💰 Deposited ✅", callback_data="upi_deposited"))
-        
+
         upi_payment_states[user_id] = {
             "amount": amount,
             "step": "qr_shown"
         }
-        
-        bot.send_photo(
-            msg.chat.id,
-            QR_IMAGE_URL,
-            caption=caption,
-            parse_mode="HTML",
-            reply_markup=markup
-        )
+
+        if display_qr:
+            bot.send_photo(
+                msg.chat.id,
+                display_qr,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+        else:
+            bot.send_message(
+                msg.chat.id,
+                caption,
+                parse_mode="HTML",
+                reply_markup=markup
+            )
     except ValueError:
         bot.send_message(msg.chat.id, "❌ Invalid amount. Enter numbers only:")
         bot.register_next_step_handler(msg, process_recharge_amount)
