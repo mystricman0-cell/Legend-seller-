@@ -3778,13 +3778,32 @@ def fampay_credit_and_notify(chat_id: int, user_id: int, order_id: str, amount: 
     except:
         pass
 
+def _send_expiry_alert(chat_id: int, amount: float):
+    """Send QR expired alert with retry button"""
+    try:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🔄 Try Again", callback_data="recharge_fampay_auto"))
+        markup.add(InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"))
+        bot.send_message(
+            chat_id,
+            "⏰ <b>QR Expired — Payment Not Received</b>\n\n"
+            f"💰 <b>Amount:</b> {format_currency(amount)}\n\n"
+            "Your QR has expired (5 min limit).\n"
+            "If you already paid, contact admin with your UTR.\n\n"
+            "What would you like to do?",
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+    except Exception as e:
+        logger.error(f"Expiry alert error: {e}")
+
 def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float, timeout_secs: int = 300):
-    """Background thread: poll FamPay API until paid or expired (backup to UTR flow)"""
+    """Background thread: poll FamPay API until paid or expired"""
     deadline = time.time() + timeout_secs
     while time.time() < deadline:
         time.sleep(8)
         if order_id in fampay_approved_orders:
-            return  # Already credited via UTR flow
+            return  # Already credited
         result = fampay_verify_payment(order_id)
         if not result:
             continue
@@ -3794,16 +3813,11 @@ def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float
             return
         elif status == "expired":
             if order_id not in fampay_approved_orders:
-                try:
-                    bot.send_message(chat_id, "⏰ <b>FamPay QR Expired!</b>\nPlease try again.", parse_mode="HTML")
-                except:
-                    pass
+                _send_expiry_alert(chat_id, amount)
             return
+    # Timeout reached (5 min) — QR expired
     if order_id not in fampay_approved_orders:
-        try:
-            bot.send_message(chat_id, "⏰ <b>Payment timeout!</b>\nQR expired. Please recharge again.", parse_mode="HTML")
-        except:
-            pass
+        _send_expiry_alert(chat_id, amount)
 
 # ---------------------------------------------------------------------
 # FAMPAY AUTO-PAY AMOUNT HANDLER
