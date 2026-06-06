@@ -4116,7 +4116,7 @@ def handle_fampay_utr(msg):
     bot.send_message(
         msg.chat.id,
         f"✅ <b>UTR Received:</b> <code>{utr}</code>\n\n"
-        "📸 <b>Step 3:</b> Send payment <b>screenshot</b> to complete verification.",
+        "📸 <b>Step 3:</b> Send payment <b>screenshot</b> for admin record.",
         parse_mode="HTML"
     )
 
@@ -4125,6 +4125,11 @@ def handle_fampay_utr(msg):
     func=lambda m: fampay_auto_states.get(m.from_user.id, {}).get("step") == "waiting_screenshot"
 )
 def handle_fampay_screenshot(msg):
+    """
+    Screenshot received — do NOT auto-approve.
+    Save UTR+screenshot for admin records only.
+    Wallet is credited ONLY when FamPay API poll confirms payment.
+    """
     user_id = msg.from_user.id
     state = fampay_auto_states.get(user_id)
     if not state or state.get("step") != "waiting_screenshot":
@@ -4135,10 +4140,60 @@ def handle_fampay_screenshot(msg):
         amount = state["amount"]
         order_id = state["order_id"]
         utr = state.get("utr", "")
-        chat_id = state["chat_id"]
 
-        # Auto-approve immediately (formality satisfied)
-        fampay_credit_and_notify(chat_id, user_id, order_id, amount, utr=utr)
+        # Save to DB as pending (NOT approved — poll will approve on API confirm)
+        req_id = f"FP_{order_id}"
+        recharges_col.update_one(
+            {"req_id": req_id},
+            {"$set": {"utr": utr, "screenshot": screenshot_file_id, "screenshot_at": datetime.utcnow()}},
+            upsert=False
+        )
+        # Also insert if not exists yet
+        if not recharges_col.find_one({"req_id": req_id}):
+            recharges_col.insert_one({
+                "req_id": req_id,
+                "user_id": user_id,
+                "amount": amount,
+                "method": "UPI Auto",
+                "status": "pending",
+                "order_id": order_id,
+                "utr": utr,
+                "screenshot": screenshot_file_id,
+                "created_at": datetime.utcnow(),
+            })
+
+        # Notify admin with screenshot + UTR for records
+        all_admins = get_all_admins()
+        admin_caption = (
+            f"📋 <b>UPI Auto — Payment Proof</b>\n\n"
+            f"👤 <b>User:</b> <code>{user_id}</code>\n"
+            f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+            f"🔢 <b>UTR:</b> <code>{utr}</code>\n"
+            f"🆔 <b>Order:</b> <code>{order_id}</code>\n\n"
+            f"⏳ <i>Waiting for FamPay API to confirm payment...</i>"
+        )
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("✅ Approve Manually", callback_data=f"approve_rech|{req_id}"),
+            InlineKeyboardButton("❌ Reject", callback_data=f"cancel_rech|{req_id}")
+        )
+        for admin in all_admins:
+            try:
+                bot.send_photo(admin["user_id"], screenshot_file_id,
+                               caption=admin_caption, parse_mode="HTML", reply_markup=markup)
+            except Exception as e:
+                logger.error(f"Admin notify error: {e}")
+
+        # Tell user to wait for API confirmation
+        fampay_auto_states.pop(user_id, None)
+        bot.send_message(
+            msg.chat.id,
+            "📸 <b>Screenshot received!</b>\n\n"
+            "⏳ Verifying payment with FamPay...\n"
+            "Wallet will be credited automatically once payment is confirmed.\n\n"
+            "<i>If payment was real, it will reflect within 1–2 minutes.</i>",
+            parse_mode="HTML"
+        )
 
     except Exception as e:
         logger.error(f"FamPay screenshot handler error: {e}")
