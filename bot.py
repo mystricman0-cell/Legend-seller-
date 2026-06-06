@@ -68,6 +68,7 @@ FAMPAY_WEBHOOK_SECRET = _g('_FP4W') or 'GOATWH_K9XC4QID5NALWQ2G'      # ← WEBH
 # ╚══════════════════════════════════════════════════════════════╝
 CRYPTO_USDT_ADDRESS = _g('_CR1A')
 CRYPTO_NETWORK      = _g('_CRN7', 'TRC20')
+CRYPTO_QR_URL       = _g('_QR0U')  # USDT QR image URL (same as UPI QR or set separately)
 
 # MUST JOIN CHANNELS - TWO CHANNELS
 MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
@@ -2623,20 +2624,17 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             if is_admin(user_id):
                 global IS_BROADCASTING
                 bot.answer_callback_query(call.id, "📢 Broadcast Panel Opened")
-                status_txt = "🔴 BUSY (another broadcast running)" if IS_BROADCASTING else "🟢 Ready"
+                status_txt = "🔴 BUSY (broadcast chal raha hai)" if IS_BROADCASTING else "🟢 Ready"
                 broadcast_msg = (
-                    "📢 **Broadcast Panel**\n\n"
+                    "📢 <b>Broadcast Panel</b>\n\n"
                     f"📡 Status: {status_txt}\n\n"
-                    "**How to broadcast:**\n"
-                    "1. Send or forward any message here\n"
-                    "2. Reply to that message with `/sendbroadcast`\n\n"
-                    "**Options:**\n"
-                    "• `/sendbroadcast` — Send to all users\n"
-                    "• `/sendbroadcast -pin` — Send + pin silently\n"
-                    "• `/sendbroadcast -pinloud` — Send + pin with notification\n\n"
-                    "If broadcast is stuck, use `/resetbroadcast`"
+                    "<b>Broadcast kaise karein:</b>\n"
+                    "1. Koi bhi message yahan send karo\n"
+                    "2. Us message ko reply karke likho: <code>/sendbroadcast</code>\n\n"
+                    "✅ Message bina 'Forwarded from' tag ke jayega\n\n"
+                    "Agar stuck ho jaye: <code>/resetbroadcast</code>"
                 )
-                bot.send_message(call.message.chat.id, broadcast_msg, parse_mode="Markdown")
+                bot.send_message(call.message.chat.id, broadcast_msg, parse_mode="HTML")
             else:
                 bot.answer_callback_query(call.id, "❌ Unauthorized", show_alert=True)
         
@@ -3704,8 +3702,6 @@ def show_recharge_methods(chat_id, message_id, user_id):
 # FAMPAY AUTO-PAY API FUNCTIONS
 # ---------------------------------------------------------------------
 
-CRYPTO_QR_URL = "https://files.catbox.moe/5h2yih.jpg"
-
 def get_usdt_inr_rate() -> float:
     """Fetch live USDT→INR rate from CoinGecko"""
     try:
@@ -3718,16 +3714,24 @@ def get_usdt_inr_rate() -> float:
         return 0.0
 
 def fampay_generate_qr(amount: float):
-    """Generate FamPay QR/order via website API
-    Response: {"status":"success","data":{"order_id":"FAMPAY...","qr_url":"...","upi_id":"..."}}
-    """
+    """Generate FamPay QR/order via website API"""
     try:
-        url = f"{FAMPAY_BASE_URL.rstrip('/')}/api/qr?api={FAMPAY_API_KEY}&amount={int(amount)}"
-        resp = requests.get(url, timeout=15)
+        base = FAMPAY_BASE_URL.rstrip('/')
+        # Try primary endpoint format
+        url = f"{base}/api/qr?api={FAMPAY_API_KEY}&amount={int(amount)}"
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        resp = requests.get(url, headers=headers, timeout=20)
+        logger.info(f"FamPay QR status={resp.status_code} body={resp.text[:300]}")
         raw = resp.json()
-        # API returns nested: {"status":"success","data":{...}}
+        # Format 1: {"status":"success","data":{...}}
         if raw.get("status") == "success" and "data" in raw:
-            return raw["data"]  # flat dict with order_id, qr_url, upi_id, amount
+            return raw["data"]
+        # Format 2: flat response with order_id at top level
+        if raw.get("order_id"):
+            return raw
+        # Format 3: {"success":true, ...}
+        if raw.get("success") and raw.get("order_id"):
+            return raw
         logger.error(f"FamPay QR unexpected response: {raw}")
         return None
     except Exception as e:
@@ -3975,13 +3979,22 @@ def process_recharge_amount(msg):
         }
 
         if display_qr:
-            bot.send_photo(
-                msg.chat.id,
-                display_qr,
-                caption=caption,
-                parse_mode="HTML",
-                reply_markup=markup
-            )
+            try:
+                bot.send_photo(
+                    msg.chat.id,
+                    display_qr,
+                    caption=caption,
+                    parse_mode="HTML",
+                    reply_markup=markup
+                )
+            except Exception as qr_err:
+                logger.warning(f"QR photo send failed ({qr_err}), sending text fallback")
+                bot.send_message(
+                    msg.chat.id,
+                    caption,
+                    parse_mode="HTML",
+                    reply_markup=markup
+                )
         else:
             bot.send_message(
                 msg.chat.id,
@@ -5287,7 +5300,7 @@ def show_user_ranking(chat_id):
         bot.send_message(chat_id, f"❌ Error generating ranking: {str(e)}")
 
 # ---------------------------------------------------------------------
-# BROADCAST FUNCTION - PERFECT FORWARD (PURE TELEBOT)
+# BROADCAST FUNCTION - NEW CLEAN SYSTEM (copy_message, users only, no forward tag)
 # ---------------------------------------------------------------------
 
 @bot.message_handler(commands=['resetbroadcast'])
@@ -5298,246 +5311,134 @@ def handle_resetbroadcast_command(msg):
         bot.send_message(msg.chat.id, "❌ Unauthorized")
         return
     IS_BROADCASTING = False
-    bot.send_message(msg.chat.id, "✅ Broadcast status reset. You can now start a new broadcast.")
+    bot.send_message(msg.chat.id, "✅ Broadcast reset ho gaya. Ab naya broadcast kar sakte ho.")
 
 @bot.message_handler(commands=['sendbroadcast'])
 def handle_sendbroadcast_command(msg):
-    """Handle /sendbroadcast command - EXACT FORWARD"""
+    """Handle /sendbroadcast — copies message to all users (no forward tag)"""
     global IS_BROADCASTING
-    
+
     if not is_admin(msg.from_user.id):
-        bot.send_message(msg.chat.id, "❌ Unauthorized access")
+        bot.send_message(msg.chat.id, "❌ Unauthorized")
         return
-    
+
     if IS_BROADCASTING:
-        bot.send_message(msg.chat.id, "⚠️ Another broadcast is already in progress. Please wait...")
+        bot.send_message(msg.chat.id, "⚠️ Ek broadcast pehle se chal raha hai. Rukko ya /resetbroadcast karo.")
         return
-    
+
     if not msg.reply_to_message:
         bot.send_message(
             msg.chat.id,
-            "❌ Please reply to a message with /sendbroadcast\n\n"
-            "📝 **Options:**\n"
-            "• `/sendbroadcast` - Normal broadcast\n"
-            "• `/sendbroadcast -pin` - Auto-pin (silent)\n"
-            "• `/sendbroadcast -pinloud` - Auto-pin (with notification)\n"
-            "• `/sendbroadcast -user` - Also send to users\n"
-            "• `/sendbroadcast -pin -user` - Combine options",
-            parse_mode="Markdown"
+            "📢 <b>Broadcast System</b>\n\n"
+            "Kisi bhi message ko reply karke yeh command bhejo:\n\n"
+            "<code>/sendbroadcast</code> — Sabko bhejo (bina forward tag)\n\n"
+            "Agar broadcast stuck ho jaye: <code>/resetbroadcast</code>",
+            parse_mode="HTML"
         )
         return
-    
-    # Parse options
-    cmd_text = msg.text.lower()
-    pin_silent = '-pin' in cmd_text and '-pinloud' not in cmd_text
-    pin_loud = '-pinloud' in cmd_text
-    send_to_users = '-user' in cmd_text
-    
+
     source = msg.reply_to_message
-    
-    # Send confirmation
+
     status_msg = bot.send_message(
         msg.chat.id,
-        f"📡 **Broadcast Started**\n\n"
-        f"📨 Forwarding EXACT message...\n"
-        f"👥 Groups: Yes\n"
-        f"👤 Users: {'Yes' if send_to_users else 'No'}\n"
-        f"📌 Pin: {'🔊 Loud' if pin_loud else '🔇 Silent' if pin_silent else '❌ No'}\n\n"
-        f"⏳ Processing...",
-        parse_mode="Markdown"
+        "📡 <b>Broadcast Shuru Ho Raha Hai...</b>\n\n"
+        "⏳ Users fetch ho rahe hain...",
+        parse_mode="HTML"
     )
-    
+
     IS_BROADCASTING = True
-    
-    # Start broadcast thread
+
     threading.Thread(
         target=broadcast_worker,
-        args=(
-            source,
-            pin_silent,
-            pin_loud,
-            send_to_users,
-            msg.chat.id,
-            status_msg.message_id,
-            msg.from_user.id
-        ),
+        args=(source, msg.chat.id, status_msg.message_id),
         daemon=True
     ).start()
 
-def broadcast_worker(source_msg, pin_silent, pin_loud, send_to_users, admin_chat_id, status_msg_id, admin_id):
-    """Broadcast worker - EXACT FORWARD to all groups and users"""
+
+def broadcast_worker(source_msg, admin_chat_id, status_msg_id):
+    """Broadcast worker — copy_message to all users (no 'Forwarded from' tag)"""
     global IS_BROADCASTING
-    
+
     try:
-        # Get all unique chat IDs from database
-        all_chats = []
-        chat_ids = set()
-        
-        # 1. Get all users (including admins — they should also receive broadcast)
-        all_users = list(users_col.find())
-        for user in all_users:
+        # Collect all user IDs
+        user_ids = set()
+        for user in users_col.find({}, {"user_id": 1}):
             uid = user.get("user_id")
             if uid:
-                chat_ids.add(uid)
-
-        # Also include all registered admins
+                user_ids.add(uid)
         try:
-            all_admins = list(admins_col.find())
-            for adm in all_admins:
+            for adm in admins_col.find({}, {"user_id": 1}):
                 aid = adm.get("user_id")
                 if aid:
-                    chat_ids.add(aid)
+                    user_ids.add(aid)
         except:
             pass
-        
-        # 2. Get all served chats if collection exists
-        try:
-            if 'served_chats' in db.list_collection_names():
-                served = db['served_chats'].find()
-                for chat in served:
-                    cid = chat.get("chat_id")
-                    if cid:
-                        chat_ids.add(cid)
-        except:
-            pass
-        
-        all_chats = list(chat_ids)
-        
-        # Separate groups and users (admins are also included in users now)
-        groups = [cid for cid in all_chats if str(cid).startswith('-')]
-        users = [cid for cid in all_chats if not str(cid).startswith('-')]
-        
-        # Update status
+
+        total = len(user_ids)
+        sent = 0
+        failed = 0
+
         bot.edit_message_text(
-            f"📡 **Broadcasting to Groups...**\n\n"
-            f"👥 Total Groups: {len(groups)}",
+            f"📡 <b>Broadcasting...</b>\n\n"
+            f"👥 Total Users: <b>{total}</b>\n"
+            f"⏳ Sending...",
             admin_chat_id,
             status_msg_id,
-            parse_mode="Markdown"
+            parse_mode="HTML"
         )
-        
-        # ----- BROADCAST TO GROUPS -----
-        groups_sent = 0
-        groups_pinned = 0
-        groups_failed = 0
-        
-        for chat_id in groups:
+
+        for uid in user_ids:
             try:
-                # EXACT FORWARD - Telegram API ka original forward
-                forwarded_msg = bot.forward_message(
-                    chat_id,
-                    source_msg.chat.id,
-                    source_msg.message_id
+                bot.copy_message(
+                    chat_id=uid,
+                    from_chat_id=source_msg.chat.id,
+                    message_id=source_msg.message_id
                 )
-                groups_sent += 1
-                
-                # Pin if option enabled
-                if pin_silent or pin_loud:
-                    try:
-                        bot.pin_chat_message(
-                            chat_id,
-                            forwarded_msg.message_id,
-                            disable_notification=(not pin_loud)
-                        )
-                        groups_pinned += 1
-                    except:
-                        pass
-                
-                # Update progress every 10 messages
-                if groups_sent % 10 == 0:
+                sent += 1
+            except Exception as e:
+                failed += 1
+                logger.debug(f"Broadcast skip {uid}: {e}")
+
+            # Progress update every 25 users
+            if (sent + failed) % 25 == 0:
+                try:
                     bot.edit_message_text(
-                        f"📡 **Broadcasting...**\n\n"
-                        f"👥 Groups: {groups_sent}/{len(groups)} sent\n"
-                        f"📌 Pinned: {groups_pinned}",
+                        f"📡 <b>Broadcasting...</b>\n\n"
+                        f"✅ Sent: <b>{sent}</b>\n"
+                        f"❌ Failed: <b>{failed}</b>\n"
+                        f"👥 Total: <b>{total}</b>",
                         admin_chat_id,
                         status_msg_id,
-                        parse_mode="Markdown"
+                        parse_mode="HTML"
                     )
-                
-                time.sleep(0.25)  # Anti-flood
-                
-            except Exception as e:
-                groups_failed += 1
-                logger.error(f"Group broadcast failed for {chat_id}: {e}")
-                continue
-        
-        # ----- BROADCAST TO USERS (if option enabled) -----
-        users_sent = 0
-        users_failed = 0
-        
-        if send_to_users and users:
+                except:
+                    pass
+
+            time.sleep(0.05)  # Anti-flood
+
+        # Final report
+        bot.edit_message_text(
+            f"✅ <b>Broadcast Complete!</b>\n\n"
+            f"✅ Sent: <b>{sent}</b>\n"
+            f"❌ Failed: <b>{failed}</b>\n"
+            f"👥 Total: <b>{total}</b>\n"
+            f"⏰ Time: {datetime.now().strftime('%H:%M:%S')}",
+            admin_chat_id,
+            status_msg_id,
+            parse_mode="HTML"
+        )
+
+    except Exception as e:
+        logger.error(f"Broadcast worker error: {e}")
+        try:
             bot.edit_message_text(
-                f"📡 **Groups Done: {groups_sent} sent**\n\n"
-                f"👤 Now broadcasting to users...\n"
-                f"👥 Total Users: {len(users)}",
+                f"❌ <b>Broadcast Failed</b>\n\nError: {str(e)}",
                 admin_chat_id,
                 status_msg_id,
-                parse_mode="Markdown"
+                parse_mode="HTML"
             )
-            
-            for user_id in users:
-                try:
-                    # EXACT FORWARD to users
-                    bot.forward_message(
-                        user_id,
-                        source_msg.chat.id,
-                        source_msg.message_id
-                    )
-                    users_sent += 1
-                    
-                    # Update progress every 20 users
-                    if users_sent % 20 == 0:
-                        bot.edit_message_text(
-                            f"📡 **Broadcasting to Users...**\n\n"
-                            f"👤 Users: {users_sent}/{len(users)} sent",
-                            admin_chat_id,
-                            status_msg_id,
-                            parse_mode="Markdown"
-                        )
-                    
-                    time.sleep(0.2)  # Anti-flood
-                    
-                except Exception as e:
-                    users_failed += 1
-                    logger.error(f"User broadcast failed for {user_id}: {e}")
-                    continue
-        
-        # ----- FINAL REPORT -----
-        report = (
-            f"🎯 **Broadcast Completed!**\n\n"
-            f"📊 **Groups:**\n"
-            f"✅ Sent: {groups_sent}\n"
-            f"📌 Pinned: {groups_pinned}\n"
-            f"❌ Failed: {groups_failed}\n"
-            f"👥 Total: {len(groups)}\n\n"
-        )
-        
-        if send_to_users:
-            report += (
-                f"👤 **Users:**\n"
-                f"✅ Sent: {users_sent}\n"
-                f"❌ Failed: {users_failed}\n"
-                f"👥 Total: {len(users)}\n\n"
-            )
-        
-        report += f"⏰ Time: {datetime.now().strftime('%H:%M:%S')}"
-        
-        bot.edit_message_text(
-            report,
-            admin_chat_id,
-            status_msg_id,
-            parse_mode="Markdown"
-        )
-        
-    except Exception as e:
-        bot.edit_message_text(
-            f"❌ **Broadcast Failed**\n\nError: {str(e)}",
-            admin_chat_id,
-            status_msg_id,
-            parse_mode="Markdown"
-        )
-        logger.error(f"Broadcast worker error: {e}")
-    
+        except:
+            pass
     finally:
         IS_BROADCASTING = False
 
