@@ -2265,12 +2265,12 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
 
         elif data == "recharge_fampay_auto":
             if not FAMPAY_API_KEY or not FAMPAY_BASE_URL:
-                bot.answer_callback_query(call.id, "⚠️ FamPay Auto-Pay not configured yet.", show_alert=True)
+                bot.answer_callback_query(call.id, "⚠️ UPI Auto not configured yet.", show_alert=True)
                 return
             edit_or_resend(
                 call.message.chat.id,
                 call.message.message_id,
-                "⚡ <b>FamPay Auto-Pay</b>\n\nEnter recharge amount (minimum ₹1):",
+                "⚡ <b>UPI Auto (QR)</b>\n\nEnter recharge amount (minimum ₹1):",
                 markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton("❌ Cancel", callback_data="back_to_menu")
                 ),
@@ -2283,17 +2283,20 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             if not CRYPTO_USDT_ADDRESS:
                 bot.answer_callback_query(call.id, "⚠️ Crypto payment not configured yet. Contact admin.", show_alert=True)
                 return
+            usdt_rate = get_usdt_inr_rate()
+            rate_line = f"📈 <b>Live Rate:</b> 1 USDT = ₹{usdt_rate:.2f}\n" if usdt_rate > 0 else ""
             crypto_text = (
                 "💎 <b>Crypto Payment (USDT)</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━\n\n"
                 "<blockquote>"
                 f"🪙 <b>Token:</b> USDT\n"
                 f"🌐 <b>Network:</b> {CRYPTO_NETWORK}\n"
+                f"{rate_line}"
                 f"📋 <b>Address:</b>\n<code>{CRYPTO_USDT_ADDRESS}</code>"
                 "</blockquote>\n\n"
                 "📌 <b>Steps:</b>\n"
-                "1️⃣ Send USDT to the address above\n"
-                "2️⃣ Take screenshot of transaction\n"
+                "1️⃣ Scan QR or copy address above\n"
+                "2️⃣ Send USDT & take screenshot\n"
                 "3️⃣ Send screenshot + TxID to admin\n\n"
                 "⚠️ <i>Min 1 USDT. Wrong network = funds lost!</i>"
             )
@@ -2302,7 +2305,20 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 InlineKeyboardButton("📩 Contact Admin", url=f"https://t.me/{os.getenv('ADMIN_USERNAME', '')}"),
                 InlineKeyboardButton("⬅️ Back", callback_data="recharge")
             )
-            edit_or_resend(call.message.chat.id, call.message.message_id, crypto_text, markup=markup, parse_mode="HTML")
+            # Delete old message and send photo with QR
+            try:
+                bot.delete_message(call.message.chat.id, call.message.message_id)
+            except: pass
+            try:
+                bot.send_photo(
+                    call.message.chat.id,
+                    CRYPTO_QR_URL,
+                    caption=crypto_text,
+                    parse_mode="HTML",
+                    reply_markup=markup
+                )
+            except:
+                bot.send_message(call.message.chat.id, crypto_text, parse_mode="HTML", reply_markup=markup)
         
         elif data == "upi_deposited":
             user_id = call.from_user.id
@@ -3671,8 +3687,8 @@ def show_recharge_methods(chat_id, message_id, user_id):
 
     markup = InlineKeyboardMarkup(row_width=1)
     if FAMPAY_API_KEY and FAMPAY_BASE_URL:
-        markup.add(InlineKeyboardButton("⚡ FamPay Auto-Pay (QR)", callback_data="recharge_fampay_auto"))
-    markup.add(InlineKeyboardButton("💳 UPI Manual (FamPay)", callback_data="recharge_upi"))
+        markup.add(InlineKeyboardButton("⚡ UPI Auto (QR)", callback_data="recharge_fampay_auto"))
+    markup.add(InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"))
     markup.add(InlineKeyboardButton("💎 Crypto (USDT)", callback_data="recharge_crypto"))
     markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_menu"))
 
@@ -3681,6 +3697,19 @@ def show_recharge_methods(chat_id, message_id, user_id):
 # ---------------------------------------------------------------------
 # FAMPAY AUTO-PAY API FUNCTIONS
 # ---------------------------------------------------------------------
+
+CRYPTO_QR_URL = "https://files.catbox.moe/5h2yih.jpg"
+
+def get_usdt_inr_rate() -> float:
+    """Fetch live USDT→INR rate from CoinGecko"""
+    try:
+        r = requests.get(
+            "https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=inr",
+            timeout=8
+        )
+        return float(r.json()["tether"]["inr"])
+    except Exception:
+        return 0.0
 
 def fampay_generate_qr(amount: float):
     """Generate FamPay QR/order via website API
@@ -3781,7 +3810,7 @@ def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float
 # ---------------------------------------------------------------------
 
 def process_fampay_auto_amount(msg):
-    """Handle amount input for FamPay Auto-Pay — animated QR gen, then ask UTR as formality"""
+    """Handle amount input for UPI Auto (QR) — animated QR gen, then ask UTR as formality"""
     try:
         amount = float(msg.text.strip())
         if amount < 1:
@@ -3823,7 +3852,7 @@ def process_fampay_auto_amount(msg):
         order_id = data["order_id"]
         qr_url = data.get("qr_url") or f"{FAMPAY_BASE_URL.rstrip('/')}/qr/{order_id}.png"
         caption = (
-            f"⚡ <b>FamPay Auto-Pay QR</b>\n\n"
+            f"⚡ <b>UPI Auto Pay QR</b>\n\n"
             f"💰 <b>Amount:</b> {format_currency(amount)}\n"
             f"🆔 <b>Order ID:</b> <code>{order_id}</code>\n\n"
             f"📋 <b>Steps:</b>\n"
@@ -5745,6 +5774,30 @@ def cmd_cleanmongo(message):
         parse_mode="HTML"
     )
 
+
+@bot.message_handler(commands=['cancel'])
+def cancel_command(msg):
+    """Clear all pending states and return to main menu"""
+    user_id = msg.from_user.id
+    chat_id = msg.chat.id
+    # Clear all state dicts
+    upi_payment_states.pop(user_id, None)
+    fampay_auto_states.pop(user_id, None)
+    recharge_method_state.pop(user_id, None)
+    user_stage.pop(chat_id, None)
+    login_states.pop(user_id, None)
+    edit_price_state.pop(user_id, None)
+    coupon_state.pop(user_id, None)
+    # Clear telebot next-step handlers
+    try:
+        bot.clear_step_handler_by_chat_id(chat_id)
+    except: pass
+    bot.send_message(
+        chat_id,
+        "❌ <b>Cancelled.</b>\n\nReturning to main menu...",
+        parse_mode="HTML"
+    )
+    clean_ui_and_send_menu(chat_id, user_id)
 
 @bot.message_handler(commands=['restart'])
 def restart_bot(message):
