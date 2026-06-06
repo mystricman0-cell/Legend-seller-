@@ -454,6 +454,7 @@ recharge_method_state = {}
 upi_payment_states = {}
 fampay_auto_states = {}       # UTR/screenshot formality for FamPay Auto
 fampay_approved_orders = set() # Orders already credited (prevent double-credit)
+fampay_notified_orders = set() # Orders already sent final msg (prevent double-notify)
 admin_add_state = {}  # For /addadmin flow
 admin_remove_state = {}  # For /removeadmin flow
 
@@ -3778,18 +3779,26 @@ def fampay_credit_and_notify(chat_id: int, user_id: int, order_id: str, amount: 
     except:
         pass
 
-def _send_expiry_alert(chat_id: int, amount: float):
-    """Send QR expired alert with retry button"""
+def _send_expiry_alert(chat_id: int, amount: float, order_id: str = ""):
+    """Send QR expired alert with retry button — only once per order"""
+    if order_id and order_id in fampay_notified_orders:
+        return
+    if order_id:
+        fampay_notified_orders.add(order_id)
     try:
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("🔄 Try Again", callback_data="recharge_fampay_auto"))
         markup.add(InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"))
         bot.send_message(
             chat_id,
-            "⏰ <b>QR Expired — Payment Not Received</b>\n\n"
+            "❌ <b>Wrong / No Payment Detected</b>\n\n"
             f"💰 <b>Amount:</b> {format_currency(amount)}\n\n"
-            "Your QR has expired (5 min limit).\n"
-            "If you already paid, contact admin with your UTR.\n\n"
+            "FamPay did not receive your payment.\n"
+            "Possible reasons:\n"
+            "• Wrong amount paid\n"
+            "• Payment was not completed\n"
+            "• QR expired before payment\n\n"
+            "If you already paid correctly, contact admin with UTR.\n\n"
             "What would you like to do?",
             parse_mode="HTML",
             reply_markup=markup
@@ -3804,6 +3813,8 @@ def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float
         time.sleep(8)
         if order_id in fampay_approved_orders:
             return  # Already credited
+        if order_id in fampay_notified_orders:
+            return  # Already sent final message
         result = fampay_verify_payment(order_id)
         if not result:
             continue
@@ -3812,12 +3823,10 @@ def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float
             fampay_credit_and_notify(chat_id, user_id, order_id, amount)
             return
         elif status == "expired":
-            if order_id not in fampay_approved_orders:
-                _send_expiry_alert(chat_id, amount)
+            _send_expiry_alert(chat_id, amount, order_id)
             return
-    # Timeout reached (5 min) — QR expired
-    if order_id not in fampay_approved_orders:
-        _send_expiry_alert(chat_id, amount)
+    # Timeout reached (5 min) without confirmation
+    _send_expiry_alert(chat_id, amount, order_id)
 
 # ---------------------------------------------------------------------
 # FAMPAY AUTO-PAY AMOUNT HANDLER
@@ -4140,9 +4149,8 @@ def handle_fampay_utr(msg):
 )
 def handle_fampay_screenshot(msg):
     """
-    Screenshot received — do NOT auto-approve.
-    Save UTR+screenshot for admin records only.
-    Wallet is credited ONLY when FamPay API poll confirms payment.
+    Screenshot received — show verification animation, check API immediately,
+    credit on success, warn on wrong/expired, wait on pending.
     """
     user_id = msg.from_user.id
     state = fampay_auto_states.get(user_id)
@@ -4151,63 +4159,138 @@ def handle_fampay_screenshot(msg):
 
     try:
         screenshot_file_id = msg.photo[-1].file_id
-        amount = state["amount"]
+        amount   = state["amount"]
         order_id = state["order_id"]
-        utr = state.get("utr", "")
+        utr      = state.get("utr", "")
+        chat_id  = state["chat_id"]
+        req_id   = f"FP_{order_id}"
 
-        # Save to DB as pending (NOT approved — poll will approve on API confirm)
-        req_id = f"FP_{order_id}"
+        # ── Verification animation ──────────────────────────────────
+        anim = bot.send_message(
+            chat_id,
+            "🔍 <b>VERIFYING PAYMENT</b> 🔍\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "🔗 <code>Contacting FamPay server...</code>",
+            parse_mode="HTML"
+        )
+        time.sleep(1.0)
+        try:
+            bot.edit_message_text(
+                "⚡ <b>CHECKING TRANSACTION</b> ⚡\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "💳 <code>Verifying payment details...</code>",
+                chat_id, anim.message_id, parse_mode="HTML"
+            )
+        except: pass
+        time.sleep(0.8)
+
+        # ── Immediate API check ─────────────────────────────────────
+        result = fampay_verify_payment(order_id)
+        status = result.get("status", "error") if result else "error"
+
+        # Delete animation
+        try:
+            bot.delete_message(chat_id, anim.message_id)
+        except: pass
+
+        # ── Save proof to DB (admin record regardless of result) ────
         recharges_col.update_one(
             {"req_id": req_id},
-            {"$set": {"utr": utr, "screenshot": screenshot_file_id, "screenshot_at": datetime.utcnow()}},
+            {"$set": {"utr": utr, "screenshot": screenshot_file_id,
+                      "screenshot_at": datetime.utcnow()}},
             upsert=False
         )
-        # Also insert if not exists yet
         if not recharges_col.find_one({"req_id": req_id}):
             recharges_col.insert_one({
-                "req_id": req_id,
-                "user_id": user_id,
-                "amount": amount,
-                "method": "UPI Auto",
-                "status": "pending",
-                "order_id": order_id,
-                "utr": utr,
+                "req_id": req_id, "user_id": user_id, "amount": amount,
+                "method": "UPI Auto", "status": "pending",
+                "order_id": order_id, "utr": utr,
                 "screenshot": screenshot_file_id,
                 "created_at": datetime.utcnow(),
             })
 
-        # Notify admin with screenshot + UTR for records
-        all_admins = get_all_admins()
-        admin_caption = (
-            f"📋 <b>UPI Auto — Payment Proof</b>\n\n"
-            f"👤 <b>User:</b> <code>{user_id}</code>\n"
-            f"💰 <b>Amount:</b> {format_currency(amount)}\n"
-            f"🔢 <b>UTR:</b> <code>{utr}</code>\n"
-            f"🆔 <b>Order:</b> <code>{order_id}</code>\n\n"
-            f"⏳ <i>Waiting for FamPay API to confirm payment...</i>"
-        )
-        markup = InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            InlineKeyboardButton("✅ Approve Manually", callback_data=f"approve_rech|{req_id}"),
-            InlineKeyboardButton("❌ Reject", callback_data=f"cancel_rech|{req_id}")
-        )
-        for admin in all_admins:
-            try:
-                bot.send_photo(admin["user_id"], screenshot_file_id,
-                               caption=admin_caption, parse_mode="HTML", reply_markup=markup)
-            except Exception as e:
-                logger.error(f"Admin notify error: {e}")
-
-        # Tell user to wait for API confirmation
+        # ── Handle result ───────────────────────────────────────────
         fampay_auto_states.pop(user_id, None)
-        bot.send_message(
-            msg.chat.id,
-            "📸 <b>Screenshot received!</b>\n\n"
-            "⏳ Verifying payment with FamPay...\n"
-            "Wallet will be credited automatically once payment is confirmed.\n\n"
-            "<i>If payment was real, it will reflect within 1–2 minutes.</i>",
-            parse_mode="HTML"
-        )
+
+        if status == "success":
+            # Payment confirmed by API — credit wallet
+            fampay_credit_and_notify(chat_id, user_id, order_id, amount, utr=utr)
+
+        elif status in ("expired", "error"):
+            # Payment not received or QR expired
+            fampay_notified_orders.add(order_id)
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton("🔄 Try Again", callback_data="recharge_fampay_auto"))
+            markup.add(InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"))
+            bot.send_message(
+                chat_id,
+                "❌ <b>Wrong / No Payment Detected</b>\n\n"
+                f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+                f"🔢 <b>UTR:</b> <code>{utr}</code>\n\n"
+                "FamPay did not confirm this payment.\n"
+                "Possible reasons:\n"
+                "• Wrong amount paid\n"
+                "• Payment was not completed\n"
+                "• QR expired before payment\n\n"
+                "If you actually paid, contact admin with your UTR.",
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+            # Notify admin about failed attempt
+            all_admins = get_all_admins()
+            admin_cap = (
+                f"⚠️ <b>UPI Auto — Failed/Wrong Payment</b>\n\n"
+                f"👤 User: <code>{user_id}</code>\n"
+                f"💰 Amount: {format_currency(amount)}\n"
+                f"🔢 UTR: <code>{utr}</code>\n"
+                f"🆔 Order: <code>{order_id}</code>\n"
+                f"📊 API Status: <code>{status}</code>\n\n"
+                f"<i>No credit given. Admin can manually approve if payment was real.</i>"
+            )
+            admin_markup = InlineKeyboardMarkup(row_width=2)
+            admin_markup.add(
+                InlineKeyboardButton("✅ Approve Manually", callback_data=f"approve_rech|{req_id}"),
+                InlineKeyboardButton("❌ Reject", callback_data=f"cancel_rech|{req_id}")
+            )
+            for admin in all_admins:
+                try:
+                    bot.send_photo(admin["user_id"], screenshot_file_id,
+                                   caption=admin_cap, parse_mode="HTML",
+                                   reply_markup=admin_markup)
+                except: pass
+
+        else:
+            # status == "pending" — payment not yet received, background poll continues
+            bot.send_message(
+                chat_id,
+                "⏳ <b>Payment Not Yet Received</b>\n\n"
+                f"💰 <b>Amount:</b> {format_currency(amount)}\n\n"
+                "FamPay hasn't confirmed your payment yet.\n"
+                "If you just paid, wallet will be credited automatically within 1–2 minutes.\n\n"
+                "<i>Still waiting for payment confirmation...</i>",
+                parse_mode="HTML"
+            )
+            # Notify admin for records
+            all_admins = get_all_admins()
+            admin_cap = (
+                f"📋 <b>UPI Auto — Payment Proof (Pending)</b>\n\n"
+                f"👤 User: <code>{user_id}</code>\n"
+                f"💰 Amount: {format_currency(amount)}\n"
+                f"🔢 UTR: <code>{utr}</code>\n"
+                f"🆔 Order: <code>{order_id}</code>\n\n"
+                f"⏳ <i>API still pending. Auto-credit when confirmed.</i>"
+            )
+            admin_markup = InlineKeyboardMarkup(row_width=2)
+            admin_markup.add(
+                InlineKeyboardButton("✅ Approve Manually", callback_data=f"approve_rech|{req_id}"),
+                InlineKeyboardButton("❌ Reject", callback_data=f"cancel_rech|{req_id}")
+            )
+            for admin in all_admins:
+                try:
+                    bot.send_photo(admin["user_id"], screenshot_file_id,
+                                   caption=admin_cap, parse_mode="HTML",
+                                   reply_markup=admin_markup)
+                except: pass
 
     except Exception as e:
         logger.error(f"FamPay screenshot handler error: {e}")
