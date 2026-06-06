@@ -68,7 +68,7 @@ FAMPAY_WEBHOOK_SECRET = _g('_FP4W') or 'GOATWH_K9XC4QID5NALWQ2G'      # ← WEBH
 # ╚══════════════════════════════════════════════════════════════╝
 CRYPTO_USDT_ADDRESS = _g('_CR1A')
 CRYPTO_NETWORK      = _g('_CRN7', 'TRC20')
-CRYPTO_QR_URL       = _g('_QR0U')  # USDT QR image URL (same as UPI QR or set separately)
+CRYPTO_QR_URL       = _g('_CRQ1')  # USDT QR image URL
 
 # MUST JOIN CHANNELS - TWO CHANNELS
 MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
