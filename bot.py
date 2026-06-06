@@ -62,9 +62,9 @@ FAMPAY_UPI_ID       = _g('_FP1U')
 # ╔══════════════════════════════════════════════════════════════╗
 # ║           FAMPAY CONFIG — CHANGE HERE IF API CHANGES        ║
 # ╠══════════════════════════════════════════════════════════════╣
-FAMPAY_API_KEY        = _g('_FP2K') or 'GOATC38JB2DSNKQ6TO'            # ← API KEY
+FAMPAY_API_KEY        = _g('_FP2K') or 'GOATGRZ94E30NPO2AB'            # ← API KEY
 FAMPAY_BASE_URL       = _g('_FP3B') or 'https://legit-fampay-api.vercel.app'  # ← BASE URL
-FAMPAY_WEBHOOK_SECRET = _g('_FP4W') or 'GOATWH_58WVHI3RA8T3FDU4'      # ← WEBHOOK SECRET
+FAMPAY_WEBHOOK_SECRET = _g('_FP4W') or 'GOATWH_K9XC4QID5NALWQ2G'      # ← WEBHOOK SECRET
 # ╚══════════════════════════════════════════════════════════════╝
 CRYPTO_USDT_ADDRESS = _g('_CR1A')
 CRYPTO_NETWORK      = _g('_CRN7', 'TRC20')
