@@ -2885,7 +2885,7 @@ def handle_bulk_numbers_input(msg):
     valid_numbers = []
     invalid_numbers = []
     
-    for line in lines[:50]:
+    for line in lines[:500]:
         cleaned = line.strip()
         if cleaned.startswith('+') and len(cleaned) >= 7:
             valid_numbers.append(cleaned)
@@ -5991,6 +5991,69 @@ def cmd_stats(message):
     except Exception as e:
         logger.error(f"/stats error: {e}")
         bot.send_message(message.chat.id, f"❌ Stats load karne mein error: {e}")
+
+
+# =============================================================
+# /loadallcountries — Admin: load all 195+ world countries into DB
+# =============================================================
+
+@bot.message_handler(commands=['loadallcountries'])
+def cmd_load_all_countries(message):
+    user_id = message.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(message, "❌ Sirf admin use kar sakta hai!")
+        return
+
+    # Parse optional default price from command: /loadallcountries 5
+    parts = message.text.strip().split()
+    try:
+        default_price = float(parts[1]) if len(parts) > 1 else 5.0
+    except ValueError:
+        default_price = 5.0
+
+    bot.send_message(message.chat.id, "⏳ Loading all world countries... please wait.")
+
+    added = 0
+    skipped = 0
+    try:
+        for name, dial_code, flag in WORLD_COUNTRIES_LIST:
+            display_name = f"{flag} {name}"
+            existing = countries_col.find_one({"name": {"$regex": f"^{re.escape(display_name)}$", "$options": "i"}})
+            if existing:
+                skipped += 1
+                continue
+            # Also check without flag
+            existing2 = countries_col.find_one({"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}})
+            if existing2:
+                skipped += 1
+                continue
+            countries_col.insert_one({
+                "name": display_name,
+                "price": default_price,
+                "status": "active",
+                "dial_code": dial_code,
+                "flag": flag,
+                "created_at": datetime.utcnow(),
+                "created_by": user_id,
+                "global": True,
+            })
+            added += 1
+
+        total_now = countries_col.count_documents({"status": "active"})
+        bot.send_message(
+            message.chat.id,
+            f"✅ <b>All World Countries Loaded!</b>\n\n"
+            f"🌍 Added: <b>{added}</b> new countries\n"
+            f"⏭️ Already existed (skipped): <b>{skipped}</b>\n"
+            f"📊 Total active countries: <b>{total_now}</b>\n\n"
+            f"💰 Default price set: <b>₹{default_price}</b>\n"
+            f"✏️ Use /editprice to change any country's price\n\n"
+            f"<i>Tip: /loadallcountries 10 — 10 rupees default price</i>",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"/loadallcountries error: {e}")
+        bot.send_message(message.chat.id, f"❌ Error: {e}")
 
 
 # =============================================================
