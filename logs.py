@@ -1,7 +1,7 @@
 """
 Logging Module for OTP Bot — Dual Channel
-Channel 1 (MASKED  — public log):  -1003912691513
-Channel 2 (FULL detail — personal): same as channel 1 unless PERSONAL_LOG_CHANNEL_ID is set
+Channel 1 (PUBLIC  — limited logs):   -1003659930873  (account sold, OTP, recharge)
+Channel 2 (PERSONAL — full audit):     -1003912691513  (everything)
 """
 
 import logging
@@ -59,8 +59,8 @@ def _mask_utr(utr: str) -> str:
 class TelegramLogger:
     """
     Sends logs to TWO Telegram channels:
-      • log_channel_id       — masked (public/shared)
-      • personal_channel_id  — full unmasked detail (owner only)
+      • log_channel_id       — public (limited: sold/OTP/recharge only)
+      • personal_channel_id  — full unmasked audit (everything)
     """
 
     def __init__(self, bot_token: str, log_channel_id: str,
@@ -69,7 +69,6 @@ class TelegramLogger:
                  buy_link: str = "https://t.me/LEGENDARY_OTP_SELLER_Bot"):
         self.bot_token = bot_token
         self.log_channel_id = str(log_channel_id)
-        # If no personal channel given, fall back to same channel
         self.personal_channel_id = str(personal_channel_id) if personal_channel_id else str(log_channel_id)
         self.support_link = support_link
         self.buy_link = buy_link
@@ -83,7 +82,7 @@ class TelegramLogger:
             self._bot = telebot.TeleBot(self.bot_token)
             self.IKM = InlineKeyboardMarkup
             self.IKB = InlineKeyboardButton
-            logger.info(f"✅ Telegram logger ready | masked={self.log_channel_id} | full={self.personal_channel_id}")
+            logger.info(f"✅ Telegram logger ready | public={self.log_channel_id} | personal={self.personal_channel_id}")
         except Exception as e:
             logger.error(f"❌ Logger init failed: {e}")
             self._bot = None
@@ -112,7 +111,7 @@ class TelegramLogger:
             logger.error(f"Log send failed to {channel_id}: {e}")
             return False
 
-    # ── PUBLIC (masked) channel helpers ─────────────────────────────────────────
+    # ── PUBLIC (limited) channel — only sold/OTP/recharge ────────────────────
 
     def log_purchase(self, user_id: int, country: str, price: float, phone: str) -> bool:
         """Masked purchase log → public channel"""
@@ -177,11 +176,26 @@ class TelegramLogger:
         )
         return self._send(self.log_channel_id, msg)
 
-    # ── PERSONAL (full detail) channel helpers ──────────────────────────────────
+    def log_recharge_request(self, user_id: int, amount: float,
+                             method: str = "UPI", utr: str = None) -> bool:
+        """Recharge request → public channel"""
+        t = datetime.now().strftime("%I:%M %p")
+        msg = (
+            f"<b>🔔 RECHARGE REQUEST</b>\n\n"
+            f"<b>User:</b> {_mask_user(user_id)}\n"
+            f"<b>Amount:</b> ₹{amount:,.0f}\n"
+            f"<b>Method:</b> {method}\n"
+            f"<b>UTR:</b> {_mask_utr(utr) if utr else 'N/A'}\n"
+            f"<b>Time:</b> {t}\n"
+            f"<b>Status:</b> Pending ⏳\n\n"
+            f"<b>🤖 @LEGENDARY_OTP_SELLER_Bot</b>"
+        )
+        return self._send(self.log_channel_id, msg)
+
+    # ── PERSONAL (full audit) channel — everything ──────────────────────────
 
     def log_personal_purchase(self, user_id: int, username: str, country: str,
                                price: float, phone: str) -> bool:
-        """Full unmasked purchase log → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         msg = (
             f"<b>📦 PURCHASE — FULL DETAIL</b>\n\n"
@@ -197,7 +211,6 @@ class TelegramLogger:
 
     def log_personal_otp(self, user_id: int, username: str, phone: str,
                           otp_code: str, two_fa: str, country: str) -> bool:
-        """Full OTP + 2FA → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         fa_line = f"\n<b>🔐 2FA:</b> <code>{two_fa}</code>" if two_fa else ""
         msg = (
@@ -215,7 +228,6 @@ class TelegramLogger:
     def log_personal_deposit_approved(self, user_id: int, username: str,
                                        amount: float, method: str,
                                        utr: str, admin_name: str) -> bool:
-        """Full deposit approved → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         msg = (
             f"<b>✅ DEPOSIT APPROVED — FULL DETAIL</b>\n\n"
@@ -233,7 +245,6 @@ class TelegramLogger:
     def log_personal_deposit_rejected(self, user_id: int, username: str,
                                        amount: float, method: str,
                                        utr: str, admin_name: str) -> bool:
-        """Full deposit rejected → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         msg = (
             f"<b>❌ DEPOSIT REJECTED — FULL DETAIL</b>\n\n"
@@ -250,7 +261,6 @@ class TelegramLogger:
 
     def log_personal_new_user(self, user_id: int, username: str, first_name: str,
                                referred_by: int = None) -> bool:
-        """New user joined → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         ref_line = f"\n<b>🔗 Referred By:</b> <code>{referred_by}</code>" if referred_by else ""
         msg = (
@@ -265,10 +275,9 @@ class TelegramLogger:
 
     def log_personal_recharge_request(self, user_id: int, username: str,
                                        amount: float, utr: str, method: str) -> bool:
-        """New recharge request → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         msg = (
-            f"<b>🔔 NEW RECHARGE REQUEST</b>\n\n"
+            f"<b>🔔 NEW RECHARGE REQUEST — DETAIL</b>\n\n"
             f"<b>🆔 User ID:</b> <code>{user_id}</code>\n"
             f"<b>👤 Username:</b> @{username or 'N/A'}\n"
             f"<b>💰 Amount:</b> ₹{amount:,.2f}\n"
@@ -281,7 +290,6 @@ class TelegramLogger:
 
     def log_personal_balance_deduct(self, user_id: int, username: str,
                                      amount: float, reason: str, admin_name: str) -> bool:
-        """Balance deduction → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         msg = (
             f"<b>💸 BALANCE DEDUCTED</b>\n\n"
@@ -297,7 +305,6 @@ class TelegramLogger:
 
     def log_personal_ban(self, user_id: int, username: str, action: str,
                           admin_name: str) -> bool:
-        """User ban/unban → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         icon = "🚫" if action == "banned" else "✅"
         msg = (
@@ -310,8 +317,38 @@ class TelegramLogger:
         )
         return self._send(self.personal_channel_id, msg)
 
+    def log_personal_security_alert(self, user_id: int, username: str,
+                                     first_name: str, message_text: str) -> bool:
+        """Security alert — user tried to extract bot secrets → personal channel"""
+        t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
+        msg = (
+            f"<b>🚨 SECURITY ALERT — SUSPICIOUS MESSAGE</b>\n\n"
+            f"<b>🆔 User ID:</b> <code>{user_id}</code>\n"
+            f"<b>👤 Username:</b> @{username or 'N/A'}\n"
+            f"<b>📛 Name:</b> {first_name or 'N/A'}\n"
+            f"<b>💬 Message:</b> <code>{message_text[:300]}</code>\n"
+            f"<b>⚠️ Reason:</b> Bot secrets/config extract karne ki koshish\n"
+            f"<b>⏰ Time:</b> {t}\n\n"
+            f"<b>🤖 @LEGENDARY_OTP_SELLER_Bot</b>"
+        )
+        return self._send(self.personal_channel_id, msg)
+
+    def log_personal_ai_chat(self, user_id: int, username: str,
+                              user_msg: str, bot_reply: str) -> bool:
+        """AI chat audit log → personal channel"""
+        t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
+        msg = (
+            f"<b>🤖 AI CHAT LOG</b>\n\n"
+            f"<b>🆔 User ID:</b> <code>{user_id}</code>\n"
+            f"<b>👤 Username:</b> @{username or 'N/A'}\n"
+            f"<b>💬 User:</b> {user_msg[:200]}\n"
+            f"<b>🤖 Bot:</b> {bot_reply[:300]}\n"
+            f"<b>⏰ Time:</b> {t}\n\n"
+            f"<b>🤖 @LEGENDARY_OTP_SELLER_Bot</b>"
+        )
+        return self._send(self.personal_channel_id, msg)
+
     def log_heartbeat(self, uptime_str: str, stats: dict) -> bool:
-        """Heartbeat report → personal channel"""
         t = datetime.now().strftime("%d-%m-%Y %I:%M:%S %p")
         msg = (
             f"<b>💓 BOT HEARTBEAT REPORT</b>\n\n"
@@ -340,7 +377,7 @@ class TelegramLogger:
             formatted.append(f"<b>{k}:</b> {v}")
         t = datetime.now().strftime("%I:%M %p")
         msg = f"<b>{title}</b>\n\n{chr(10).join(formatted)}\n\n⏰ {t}"
-        return self._send(self.log_channel_id, msg)
+        return self._send(self.personal_channel_id, msg)
 
 
 # ─── Global instance ───────────────────────────────────────────────────────────
@@ -411,6 +448,16 @@ def log_recharge_rejected_async(user_id: int, amount: float,
             get_logger().log_recharge_rejected(user_id, amount, method, utr)
         except Exception as e:
             logging.error(f"log_recharge_rejected_async: {e}")
+    _run_async(_log)
+
+
+def log_recharge_request_async(user_id: int, amount: float,
+                               method: str = "UPI", utr: str = None):
+    def _log():
+        try:
+            get_logger().log_recharge_request(user_id, amount, method, utr)
+        except Exception as e:
+            logging.error(f"log_recharge_request_async: {e}")
     _run_async(_log)
 
 
@@ -493,6 +540,26 @@ def log_personal_ban_async(user_id: int, username: str, action: str, admin_name:
     _run_async(_log)
 
 
+def log_personal_security_alert_async(user_id: int, username: str,
+                                       first_name: str, message_text: str):
+    def _log():
+        try:
+            get_logger().log_personal_security_alert(user_id, username, first_name, message_text)
+        except Exception as e:
+            logging.error(f"log_personal_security_alert_async: {e}")
+    _run_async(_log)
+
+
+def log_personal_ai_chat_async(user_id: int, username: str,
+                                user_msg: str, bot_reply: str):
+    def _log():
+        try:
+            get_logger().log_personal_ai_chat(user_id, username, user_msg, bot_reply)
+        except Exception as e:
+            logging.error(f"log_personal_ai_chat_async: {e}")
+    _run_async(_log)
+
+
 def log_custom_async(title: str, **kwargs):
     def _log():
         try:
@@ -506,9 +573,11 @@ __all__ = [
     'TelegramLogger', 'init_logger', 'get_logger',
     'log_purchase_async', 'log_otp_received_async',
     'log_recharge_approved_async', 'log_recharge_rejected_async',
+    'log_recharge_request_async',
     'log_personal_purchase_async', 'log_personal_otp_async',
     'log_personal_deposit_approved_async', 'log_personal_deposit_rejected_async',
     'log_personal_new_user_async', 'log_personal_recharge_request_async',
     'log_personal_balance_deduct_async', 'log_personal_ban_async',
+    'log_personal_security_alert_async', 'log_personal_ai_chat_async',
     'log_custom_async', 'telegram_logger',
 ]
