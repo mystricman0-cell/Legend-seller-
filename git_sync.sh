@@ -6,6 +6,9 @@ if [ -z "$GITHUB_TOKEN" ]; then
     exit 1
 fi
 
+git config --global user.email "bot@legendaryotp.replit"
+git config --global user.name "Legendary OTP Bot"
+
 REMOTE_URL=$(git remote get-url origin 2>/dev/null)
 CLEAN_URL=$(echo "$REMOTE_URL" | sed 's|https://[^@]*@||' | sed 's|https://||')
 AUTH_URL="https://${GITHUB_TOKEN}@${CLEAN_URL}"
