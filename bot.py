@@ -5,7 +5,9 @@ import time
 import random
 import sys
 import os
-from datetime import datetime, timedelta
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 import asyncio
 
@@ -5898,13 +5900,15 @@ _BOT_QUOTES = [
 ]
 
 _SECURITY_KEYWORDS = [
-    "bot token", "token", "api key", "apikey", "api_key", "secret",
-    "mongo", "mongodb", "database url", "db url", "env", "environment variable",
-    "config", "credential", "webhook secret", "webhook", "api id", "api hash",
-    "admin id", "admin password", "source code", "github", "source", "backend",
-    "server", "hosting", "replit", "key leak", "exposed", "password leak",
-    "bot ka password", "bot secret", "bot config", "private key", "access token",
-    "refresh token", "fampay key", "payment key", "openai key", "chatgpt key",
+    "bot token", "bot ka token", "telegram token",
+    "api key", "apikey", "api_key",
+    "bot secret", "bot ka secret", "webhook secret",
+    "mongo url", "mongodb url", "database url", "db url",
+    "admin password", "bot password", "bot ka password",
+    "source code", "bot config", "private key",
+    "fampay key", "openai key", "chatgpt key",
+    "api id", "api hash",
+    "replit secret", "env variable", "environment variable",
 ]
 
 def _is_security_suspicious(text: str) -> bool:
