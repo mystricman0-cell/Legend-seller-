@@ -73,8 +73,9 @@ CRYPTO_QR_URL       = _g('_CRQ1')  # USDT QR image URL
 # MUST JOIN CHANNELS - TWO CHANNELS
 MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
 MUST_JOIN_CHANNEL_2 = "@II_LEGEND_OTP_SELLER_UPDATES_II"
-# LOG CHANNEL
-LOG_CHANNEL_ID = "-1003912691513"
+# LOG CHANNELS
+LOG_CHANNEL_ID          = "-1003659930873"   # PUBLIC  — sold/OTP/recharge only
+PERSONAL_LOG_CHANNEL_ID_FIXED = "-1003912691513"  # PERSONAL — full audit
 
 # Referral commission percentage
 REFERRAL_COMMISSION = 1.7
@@ -486,17 +487,22 @@ except ImportError as e:
     account_manager = None
 
 # Import logging module
-PERSONAL_LOG_CHANNEL_ID = _g('_LC9P') or LOG_CHANNEL_ID
+PERSONAL_LOG_CHANNEL_ID = PERSONAL_LOG_CHANNEL_ID_FIXED  # always -1003912691513
+
+# OpenAI / ChatGPT config
+OPENAI_API_KEY = _g('_AX1N') or ''
 
 try:
     from logs import (
         init_logger,
         log_purchase_async, log_otp_received_async,
         log_recharge_approved_async, log_recharge_rejected_async,
+        log_recharge_request_async,
         log_personal_purchase_async, log_personal_otp_async,
         log_personal_deposit_approved_async, log_personal_deposit_rejected_async,
         log_personal_new_user_async, log_personal_recharge_request_async,
         log_personal_balance_deduct_async, log_personal_ban_async,
+        log_personal_security_alert_async, log_personal_ai_chat_async,
     )
     init_logger(BOT_TOKEN, LOG_CHANNEL_ID, personal_channel_id=PERSONAL_LOG_CHANNEL_ID)
     logger.info(f"✅ Telegram dual-logger initialized | public={LOG_CHANNEL_ID} | personal={PERSONAL_LOG_CHANNEL_ID}")
@@ -514,6 +520,9 @@ except ImportError as e:
     def log_personal_recharge_request_async(*a, **k): pass
     def log_personal_balance_deduct_async(*a, **k): pass
     def log_personal_ban_async(*a, **k): pass
+    def log_recharge_request_async(*a, **k): pass
+    def log_personal_security_alert_async(*a, **k): pass
+    def log_personal_ai_chat_async(*a, **k): pass
 
 # Async manager for background tasks
 async_manager = None
