@@ -6107,10 +6107,75 @@ def chat_handler(msg):
             return
     
     if msg.chat.type == "private":
-        bot.send_message(
-            user_id,
-            "⚠️ Please use /start or buttons from the menu."
-        )
+        text = msg.text or ""
+        user_name = msg.from_user.first_name or "User"
+        username = msg.from_user.username or ""
+
+        # ── Security Check ─────────────────────────────────────────────
+        if _is_security_suspicious(text):
+            # Warn the user
+            bot.send_message(
+                user_id,
+                "🚨 <b>SECURITY WARNING!</b>\n\n"
+                "⚠️ Aap bot ki confidential information access karne ki koshish kar rahe hain.\n\n"
+                "❌ Yeh allowed nahi hai. Is activity ko admin ko report kar diya gaya hai.\n\n"
+                "✅ Agar aapko help chahiye toh /start press karein.",
+                parse_mode="HTML"
+            )
+            # Alert admin with full user details
+            try:
+                bot.send_message(
+                    ADMIN_ID,
+                    f"🚨 <b>SECURITY ALERT!</b>\n\n"
+                    f"<b>🆔 User ID:</b> <code>{user_id}</code>\n"
+                    f"<b>👤 Username:</b> @{username or 'N/A'}\n"
+                    f"<b>📛 Name:</b> {user_name}\n"
+                    f"<b>💬 Message:</b> <code>{text[:300]}</code>\n\n"
+                    f"⚠️ Bot secrets/config extract karne ki koshish ki!",
+                    parse_mode="HTML"
+                )
+            except Exception as _se:
+                logger.error(f"Security alert to admin failed: {_se}")
+            # Log to personal channel
+            threading.Thread(
+                target=log_personal_security_alert_async,
+                args=(user_id, username, user_name, text),
+                daemon=True
+            ).start()
+            return
+
+        # ── AI Chatbot Response ────────────────────────────────────────
+        if text and not text.startswith('/'):
+            quote = random.choice(_BOT_QUOTES)
+            ai_reply = _get_ai_response(text, user_name)
+
+            if ai_reply:
+                full_reply = (
+                    f"<i>✨ {quote}</i>\n\n"
+                    f"{ai_reply}"
+                )
+                try:
+                    bot.send_message(user_id, full_reply, parse_mode="HTML")
+                    # Audit log → personal channel
+                    threading.Thread(
+                        target=log_personal_ai_chat_async,
+                        args=(user_id, username, text, ai_reply),
+                        daemon=True
+                    ).start()
+                except Exception as _ae:
+                    logger.error(f"AI reply send error: {_ae}")
+                    bot.send_message(user_id, "⚠️ Kripya /start press karein ya menu se option chunein.")
+            else:
+                # No API key or API error — show friendly menu prompt
+                bot.send_message(
+                    user_id,
+                    f"<i>✨ {quote}</i>\n\n"
+                    f"Namaste {user_name}! 👋\n"
+                    f"Menu se apna kaam select karein ya /start press karein.",
+                    parse_mode="HTML"
+                )
+        else:
+            bot.send_message(user_id, "⚠️ /start press karein ya menu se option chunein.")
 
 # ---------------------------------------------------------------------
 # FLASK WEBHOOK SERVER — exclusive control, no polling conflicts
