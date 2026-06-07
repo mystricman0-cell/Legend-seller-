@@ -11,16 +11,20 @@ from datetime import datetime, timedelta, timezone
 from bson import ObjectId
 import asyncio
 
-# Event loop initialization
-try:
-    loop = asyncio.get_event_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+def _get_or_create_event_loop():
+    """Always returns a running event loop — creates new one if closed/missing."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("closed")
+        return loop
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
 
-# Simple fix
-import asyncio
-asyncio.set_event_loop(asyncio.new_event_loop())
+# Robust event loop — auto-recovers if closed
+asyncio.set_event_loop(_get_or_create_event_loop())
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 import telebot.types
