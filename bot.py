@@ -492,7 +492,7 @@ except ImportError as e:
 PERSONAL_LOG_CHANNEL_ID = PERSONAL_LOG_CHANNEL_ID_FIXED  # always -1003912691513
 
 # OpenAI / ChatGPT config
-OPENAI_API_KEY = _g('_AX1N') or ''  # Set _AX1N in Replit Secrets
+OPENAI_API_KEY = _g('_AX1N') or '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'
 
 try:
     from logs import (
