@@ -5822,6 +5822,116 @@ def process_purchase(user_id, account_id, chat_id, message_id, callback_id):
 # =============================================================
 # RESTART COMMAND (VPS + HEROKU SAFE)
 # =============================================================
+# /stats COMMAND — Admin dashboard
+# =============================================================
+
+@bot.message_handler(commands=['stats'])
+def cmd_stats(message):
+    user_id = message.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(message, "❌ Sirf admin use kar sakta hai!")
+        return
+    try:
+        now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        total_users   = users_col.count_documents({})
+        new_today     = users_col.count_documents({"created_at": {"$gte": today_start}})
+        banned_count  = banned_users_col.count_documents({"status": "banned"})
+
+        total_orders  = orders_col.count_documents({})
+        today_orders  = orders_col.count_documents({"created_at": {"$gte": today_start}})
+
+        revenue_pipe  = [{"$group": {"_id": None, "total": {"$sum": "$price"}}}]
+        rev_all       = list(orders_col.aggregate(revenue_pipe))
+        total_revenue = rev_all[0]["total"] if rev_all else 0
+
+        rev_today_pipe = [
+            {"$match": {"created_at": {"$gte": today_start}}},
+            {"$group": {"_id": None, "total": {"$sum": "$price"}}}
+        ]
+        rev_today_res  = list(orders_col.aggregate(rev_today_pipe))
+        today_revenue  = rev_today_res[0]["total"] if rev_today_res else 0
+
+        pending_rc    = recharges_col.count_documents({"status": "pending"})
+        approved_rc   = recharges_col.count_documents({"status": "approved"})
+
+        total_accounts  = accounts_col.count_documents({}) if 'accounts_col' in dir() else 0
+        active_accounts = accounts_col.count_documents({"status": "active"}) if 'accounts_col' in dir() else 0
+        sold_accounts   = accounts_col.count_documents({"status": "sold"}) if 'accounts_col' in dir() else 0
+
+        total_admins = admins_col.count_documents({})
+
+        t = now.strftime("%d-%m-%Y %H:%M UTC")
+
+        text = (
+            f"📊 <b>BOT STATS DASHBOARD</b>\n"
+            f"<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n\n"
+            f"<b>👥 USERS</b>\n"
+            f"  • Total: <b>{total_users}</b>\n"
+            f"  • Aaj Naye: <b>{new_today}</b>\n"
+            f"  • Banned: <b>{banned_count}</b>\n"
+            f"  • Admins: <b>{total_admins}</b>\n\n"
+            f"<b>🛒 ORDERS</b>\n"
+            f"  • Total: <b>{total_orders}</b>\n"
+            f"  • Aaj: <b>{today_orders}</b>\n\n"
+            f"<b>💰 REVENUE</b>\n"
+            f"  • Total: <b>₹{total_revenue:,.2f}</b>\n"
+            f"  • Aaj: <b>₹{today_revenue:,.2f}</b>\n\n"
+            f"<b>💳 RECHARGES</b>\n"
+            f"  • Pending: <b>{pending_rc}</b>\n"
+            f"  • Approved: <b>{approved_rc}</b>\n\n"
+            f"<b>📱 ACCOUNTS (Stock)</b>\n"
+            f"  • Total: <b>{total_accounts}</b>\n"
+            f"  • Active: <b>{active_accounts}</b>\n"
+            f"  • Sold: <b>{sold_accounts}</b>\n\n"
+            f"<code>━━━━━━━━━━━━━━━━━━━━━━</code>\n"
+            f"⏰ <i>{t}</i>\n"
+            f"🤖 @LEGENDARY_OTP_SELLER_Bot"
+        )
+        bot.send_message(message.chat.id, text, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"/stats error: {e}")
+        bot.send_message(message.chat.id, f"❌ Stats load karne mein error: {e}")
+
+
+# =============================================================
+# /clearaccounts COMMAND — Admin: clear stock accounts
+# =============================================================
+
+@bot.message_handler(commands=['clearaccounts'])
+def cmd_clearaccounts(message):
+    user_id = message.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(message, "❌ Sirf admin use kar sakta hai!")
+        return
+    try:
+        total = accounts_col.count_documents({}) if 'accounts_col' in dir() else 0
+        active = accounts_col.count_documents({"status": "active"}) if 'accounts_col' in dir() else 0
+        sold = accounts_col.count_documents({"status": "sold"}) if 'accounts_col' in dir() else 0
+    except:
+        total = active = sold = 0
+
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton(f"🗑️ Sirf Sold accounts clear karo ({sold})", callback_data="clearacc_sold"),
+        InlineKeyboardButton(f"🗑️ Sirf Active accounts clear karo ({active})", callback_data="clearacc_active"),
+        InlineKeyboardButton(f"⚠️ Sab clear karo ({total} total)", callback_data="clearacc_all"),
+        InlineKeyboardButton("❌ Cancel", callback_data="admin_panel"),
+    )
+    bot.send_message(
+        message.chat.id,
+        f"🗑️ <b>Clear Accounts</b>\n\n"
+        f"📱 Total Stock: <b>{total}</b>\n"
+        f"✅ Active: <b>{active}</b>\n"
+        f"💰 Sold: <b>{sold}</b>\n\n"
+        f"<b>Kya clear karna hai?</b>",
+        reply_markup=markup,
+        parse_mode="HTML"
+    )
+
+
+# =============================================================
 
 @bot.message_handler(commands=['cleanmongo'])
 def cmd_cleanmongo(message):
