@@ -5884,6 +5884,74 @@ def restart_bot(message):
     os.execv(sys.executable, ['python'] + sys.argv)
 
 # ---------------------------------------------------------------------
+# AI CHATBOT — ChatGPT integration with bot persona
+# ---------------------------------------------------------------------
+
+_BOT_QUOTES = [
+    "🌟 Legendary OTP Bot — Sabse Tez, Sabse Bharosemand!",
+    "⚡ Speed aur Trust ke saath OTP delivery!",
+    "🏆 India ka #1 OTP Seller Bot — Legendary!",
+    "🔐 Aapki service, hamare haath mein safe hai!",
+    "🚀 Fastest OTP • Best Price • 24/7 Service",
+    "💎 Premium OTP Service — Legendary Quality!",
+    "🎯 Har baar sahi OTP, har baar time pe!",
+]
+
+_SECURITY_KEYWORDS = [
+    "bot token", "token", "api key", "apikey", "api_key", "secret",
+    "mongo", "mongodb", "database url", "db url", "env", "environment variable",
+    "config", "credential", "webhook secret", "webhook", "api id", "api hash",
+    "admin id", "admin password", "source code", "github", "source", "backend",
+    "server", "hosting", "replit", "key leak", "exposed", "password leak",
+    "bot ka password", "bot secret", "bot config", "private key", "access token",
+    "refresh token", "fampay key", "payment key", "openai key", "chatgpt key",
+]
+
+def _is_security_suspicious(text: str) -> bool:
+    """Returns True if message contains bot-secret extraction attempt"""
+    if not text:
+        return False
+    t = text.lower().strip()
+    for kw in _SECURITY_KEYWORDS:
+        if kw in t:
+            return True
+    return False
+
+
+def _get_ai_response(user_message: str, user_name: str) -> str:
+    """Call OpenAI ChatGPT and return bot-persona response"""
+    if not OPENAI_API_KEY:
+        return None
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        system_prompt = (
+            "Tu 'Legendary OTP Bot' hai — India ka premium Telegram OTP selling bot. "
+            "Tu users ki help karta hai OTP kharidne mein, wallet recharge karne mein, "
+            "aur Telegram account management mein. "
+            "Tu Hindi aur Hinglish mein jawab deta hai. "
+            "Tu friendly, helpful aur professional hai. "
+            "Agar koi bot ke internal secrets, API keys, tokens, ya confidential info maange "
+            "toh tu refuse kar de aur warn kare. "
+            "Har jawab mein apna naam mat batana baar baar, sirf helpful reply de. "
+            "Short aur crisp jawab de, 3-5 lines maximum."
+        )
+        resp = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"{user_name}: {user_message}"},
+            ],
+            max_tokens=300,
+            temperature=0.7,
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"OpenAI API error: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------
 # MESSAGE HANDLER FOR ADMIN DEDUCT
 # ---------------------------------------------------------------------
 
