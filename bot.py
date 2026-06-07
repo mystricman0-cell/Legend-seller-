@@ -2536,6 +2536,31 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 except Exception as e:
                     bot.send_message(call.message.chat.id, f"❌ Cleanup error: {e}")
 
+        elif data in ("clearacc_sold", "clearacc_active", "clearacc_all"):
+            if not is_admin(user_id):
+                bot.answer_callback_query(call.id, "❌ Unauthorized", show_alert=True)
+                return
+            bot.answer_callback_query(call.id, "🗑 Clearing...", show_alert=False)
+            try:
+                if data == "clearacc_sold":
+                    res = accounts_col.delete_many({"used": True})
+                    label = "Sold accounts"
+                elif data == "clearacc_active":
+                    res = accounts_col.delete_many({"status": "active", "used": False})
+                    label = "Active accounts"
+                else:
+                    res = accounts_col.delete_many({})
+                    label = "All accounts"
+                bot.send_message(
+                    call.message.chat.id,
+                    f"✅ <b>{label} cleared!</b>\n\n"
+                    f"🗑️ Deleted: <b>{res.deleted_count}</b> accounts\n"
+                    f"📱 Remaining: <b>{accounts_col.count_documents({})}</b>",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                bot.send_message(call.message.chat.id, f"❌ Error: {e}")
+
         elif data == "edit_price":
             if is_admin(user_id):
                 bot.answer_callback_query(call.id, "Processing...")
