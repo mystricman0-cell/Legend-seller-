@@ -5856,9 +5856,9 @@ def cmd_stats(message):
         pending_rc    = recharges_col.count_documents({"status": "pending"})
         approved_rc   = recharges_col.count_documents({"status": "approved"})
 
-        total_accounts  = accounts_col.count_documents({}) if 'accounts_col' in dir() else 0
-        active_accounts = accounts_col.count_documents({"status": "active"}) if 'accounts_col' in dir() else 0
-        sold_accounts   = accounts_col.count_documents({"status": "sold"}) if 'accounts_col' in dir() else 0
+        total_accounts  = accounts_col.count_documents({})
+        active_accounts = accounts_col.count_documents({"status": "active", "used": False})
+        sold_accounts   = accounts_col.count_documents({"used": True})
 
         total_admins = admins_col.count_documents({})
 
@@ -5906,9 +5906,9 @@ def cmd_clearaccounts(message):
         bot.reply_to(message, "❌ Sirf admin use kar sakta hai!")
         return
     try:
-        total = accounts_col.count_documents({}) if 'accounts_col' in dir() else 0
-        active = accounts_col.count_documents({"status": "active"}) if 'accounts_col' in dir() else 0
-        sold = accounts_col.count_documents({"status": "sold"}) if 'accounts_col' in dir() else 0
+        total  = accounts_col.count_documents({})
+        active = accounts_col.count_documents({"status": "active", "used": False})
+        sold   = accounts_col.count_documents({"used": True})
     except:
         total = active = sold = 0
 
