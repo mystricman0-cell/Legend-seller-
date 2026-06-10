@@ -1106,9 +1106,8 @@ def format_currency(x):
         return "₹0"
 
 def get_available_accounts_count(country):
-    import re as _re
     return accounts_col.count_documents({
-        "country": {"$regex": f"^{_re.escape(country)}$", "$options": "i"},
+        "country": {"$regex": f"^{re.escape(country)}$", "$options": "i"},
         "status": "active", "used": False
     })
 
@@ -5847,7 +5846,8 @@ def show_country_details(user_id, country_name, chat_id, message_id, callback_id
         markup = InlineKeyboardMarkup(row_width=1)
         if accounts_count > 0:
             accounts = list(accounts_col.find({
-                "country": country_name, "status": "active", "used": False
+                "country": {"$regex": f"^{re.escape(country_name)}$", "$options": "i"},
+                "status": "active", "used": False
             }))
             buy_cb = f"buy_{accounts[0]['_id']}" if accounts else "out_of_stock"
             markup.add(InlineKeyboardButton("🛒 Buy Account", callback_data=buy_cb))
