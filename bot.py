@@ -6347,6 +6347,36 @@ def cmd_empty_countries(message):
         reply_markup=markup, parse_mode="HTML"
     )
 
+@bot.message_handler(commands=['cleanempty'])
+def cmd_clean_empty_countries(message):
+    user_id = message.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(message, "❌ Sirf admins ke liye.")
+        return
+    all_countries = get_all_countries()
+    empty = [c for c in all_countries if get_available_accounts_count(c['name']) == 0]
+    if not empty:
+        bot.reply_to(message,
+            "✅ <b>Kuch bhi remove nahi karna!</b>\nSabhi countries mein stock available hai.",
+            parse_mode="HTML")
+        return
+    lines = "\n".join([f"• {c['name']} — {format_currency(c['price'])}" for c in empty])
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton(
+            f"🗑️ Haan, {len(empty)} empty countries remove karo",
+            callback_data="cleanempty_confirm"
+        ),
+        InlineKeyboardButton("❌ Cancel", callback_data="admin_panel")
+    )
+    bot.send_message(
+        message.chat.id,
+        f"⚠️ <b>Yeh {len(empty)} 0-stock countries permanently delete ho jaayengi:</b>\n\n"
+        f"{lines}\n\n"
+        f"<b>Confirm karo?</b>",
+        reply_markup=markup, parse_mode="HTML"
+    )
+
 @bot.message_handler(commands=['cleanmongo', 'clean'])
 def cmd_cleanmongo(message):
     user_id = message.from_user.id
@@ -6858,6 +6888,7 @@ if __name__ == "__main__":
             BotCommand("cleanmongo",       "🧹 MongoDB cleanup (same as /clean)"),
             BotCommand("clearaccounts",    "🗑️ Accounts clear karo"),
             BotCommand("emptycountries",   "📭 0-stock countries ki list dekhein"),
+            BotCommand("cleanempty",       "🗑️ Sabhi 0-stock countries permanently remove karo"),
             BotCommand("addadmin",         "➕ Naya admin add karo"),
             BotCommand("removeadmin",      "➖ Admin remove karo"),
             BotCommand("restart",          "♻️ Bot restart karo"),
