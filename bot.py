@@ -2619,6 +2619,40 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 except Exception as e:
                     bot.send_message(call.message.chat.id, f"❌ Cleanup error: {e}")
 
+        elif data == "cleanempty_confirm":
+            if is_admin(user_id):
+                bot.answer_callback_query(call.id, "🗑 Removing empty countries...", show_alert=False)
+                try:
+                    all_countries = get_all_countries()
+                    empty = [c for c in all_countries if get_available_accounts_count(c['name']) == 0]
+                    if not empty:
+                        bot.send_message(call.message.chat.id,
+                            "✅ <b>Kuch bhi remove nahi karna!</b>\nSabhi countries mein already stock hai.",
+                            parse_mode="HTML")
+                    else:
+                        removed = []
+                        for c in empty:
+                            countries_col.update_one(
+                                {"name": c['name']},
+                                {"$set": {"status": "inactive", "removed_at": datetime.utcnow()}}
+                            )
+                            accounts_col.delete_many({"country": {"$regex": f"^{re.escape(c['name'])}$", "$options": "i"}})
+                            removed.append(c['name'])
+                        lines = "\n".join([f"• {n}" for n in removed])
+                        markup = InlineKeyboardMarkup()
+                        markup.add(InlineKeyboardButton("⬅️ Back to Admin", callback_data="admin_panel"))
+                        bot.send_message(
+                            call.message.chat.id,
+                            f"✅ <b>{len(removed)} Empty Countries Removed!</b>\n\n"
+                            f"<b>Removed:</b>\n{lines}\n\n"
+                            f"Yeh countries ab buy aur manage section mein nahi dikhenge.",
+                            reply_markup=markup, parse_mode="HTML"
+                        )
+                except Exception as e:
+                    bot.send_message(call.message.chat.id, f"❌ Error removing empty countries: {e}")
+            else:
+                bot.answer_callback_query(call.id, "❌ Unauthorized", show_alert=True)
+
         elif data in ("clearacc_sold", "clearacc_active", "clearacc_all"):
             if not is_admin(user_id):
                 bot.answer_callback_query(call.id, "❌ Unauthorized", show_alert=True)
