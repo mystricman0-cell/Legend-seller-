@@ -6716,15 +6716,16 @@ if __name__ == "__main__":
             BotCommand("cancel",         "❌ Sab kuch cancel karo"),
         ]
         admin_cmds = user_cmds + [
-            BotCommand("stats",          "📊 Bot stats dekhein"),
-            BotCommand("clean",          "🧹 MongoDB junk clean karo"),
-            BotCommand("cleanmongo",     "🧹 MongoDB cleanup (same as /clean)"),
-            BotCommand("clearaccounts",  "🗑️ Accounts clear karo"),
-            BotCommand("addadmin",       "➕ Naya admin add karo"),
-            BotCommand("removeadmin",    "➖ Admin remove karo"),
-            BotCommand("restart",        "♻️ Bot restart karo"),
-            BotCommand("sendbroadcast",  "📢 Broadcast message bhejo"),
-            BotCommand("resetbroadcast", "🔄 Broadcast reset karo"),
+            BotCommand("stats",            "📊 Bot stats dekhein"),
+            BotCommand("dbstats",          "📦 MongoDB storage & collection sizes"),
+            BotCommand("clean",            "🧹 MongoDB junk clean karo"),
+            BotCommand("cleanmongo",       "🧹 MongoDB cleanup (same as /clean)"),
+            BotCommand("clearaccounts",    "🗑️ Accounts clear karo"),
+            BotCommand("addadmin",         "➕ Naya admin add karo"),
+            BotCommand("removeadmin",      "➖ Admin remove karo"),
+            BotCommand("restart",          "♻️ Bot restart karo"),
+            BotCommand("sendbroadcast",    "📢 Broadcast message bhejo"),
+            BotCommand("resetbroadcast",   "🔄 Broadcast reset karo"),
             BotCommand("loadallcountries", "🌍 Sab countries load karo"),
         ]
         bot.set_my_commands(user_cmds)
