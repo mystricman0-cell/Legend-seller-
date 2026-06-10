@@ -6857,6 +6857,7 @@ if __name__ == "__main__":
             BotCommand("clean",            "🧹 MongoDB junk clean karo"),
             BotCommand("cleanmongo",       "🧹 MongoDB cleanup (same as /clean)"),
             BotCommand("clearaccounts",    "🗑️ Accounts clear karo"),
+            BotCommand("emptycountries",   "📭 0-stock countries ki list dekhein"),
             BotCommand("addadmin",         "➕ Naya admin add karo"),
             BotCommand("removeadmin",      "➖ Admin remove karo"),
             BotCommand("restart",          "♻️ Bot restart karo"),
