@@ -3830,6 +3830,8 @@ def fampay_generate_qr(amount: float):
     """Generate FamPay QR/order via website API"""
     try:
         base = FAMPAY_BASE_URL.rstrip('/')
+        key_preview = (FAMPAY_API_KEY or '')[:8] + '...' if FAMPAY_API_KEY else 'NOT SET'
+        logger.info(f"FamPay DEBUG — base={base} | key={key_preview} | amount={amount}")
         # Try primary endpoint format
         url = f"{base}/api/qr?api={FAMPAY_API_KEY}&amount={int(amount)}"
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
