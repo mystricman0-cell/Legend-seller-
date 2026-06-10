@@ -2813,6 +2813,30 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 show_country_management(call.message.chat.id)
             else:
                 bot.answer_callback_query(call.id, "❌ Unauthorized", show_alert=True)
+
+        elif data.startswith("mgmt_page_"):
+            if is_admin(user_id):
+                try:
+                    pg = int(data.split("_")[-1])
+                except:
+                    pg = 1
+                show_country_management(call.message.chat.id, page=pg)
+
+        elif data.startswith("mgmt_country_"):
+            if is_admin(user_id):
+                country_name = data[len("mgmt_country_"):]
+                country = get_country_by_name(country_name)
+                cnt = get_available_accounts_count(country_name)
+                if country:
+                    markup = InlineKeyboardMarkup(row_width=1)
+                    markup.add(InlineKeyboardButton("⬅️ Back", callback_data="manage_countries"))
+                    bot.send_message(
+                        call.message.chat.id,
+                        f"🌍 <b>{country_name}</b>\n\n"
+                        f"💰 Price: <b>{format_currency(country['price'])}</b>\n"
+                        f"📦 Stock: <b>{cnt}</b> accounts",
+                        reply_markup=markup, parse_mode="HTML"
+                    )
         
         elif data == "add_country":
             if is_admin(user_id):
