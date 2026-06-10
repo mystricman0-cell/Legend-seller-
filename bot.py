@@ -2852,6 +2852,14 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 show_country_removal(call.message.chat.id)
             else:
                 bot.answer_callback_query(call.id, "❌ Unauthorized", show_alert=True)
+
+        elif data.startswith("rmv_page_"):
+            if is_admin(user_id):
+                try:
+                    pg = int(data.split("_")[-1])
+                except:
+                    pg = 1
+                show_country_removal(call.message.chat.id, page=pg)
         
         elif data.startswith("remove_country_"):
             if is_admin(user_id):
@@ -5260,29 +5268,44 @@ def ask_country_price(message):
     except ValueError:
         bot.send_message(message.chat.id, "❌ Invalid price. Please enter a number:")
 
-def show_country_removal(chat_id):
+def show_country_removal(chat_id, page=1):
     if not is_admin(chat_id):
         bot.send_message(chat_id, "❌ Unauthorized access")
         return
-    
+
     countries = get_all_countries()
     if not countries:
         bot.send_message(chat_id, "❌ No countries available to remove.")
         return
-    
+
+    PAGE_SIZE = 8
+    total = len(countries)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(1, min(page, total_pages))
+    page_countries = countries[(page-1)*PAGE_SIZE : page*PAGE_SIZE]
+
     markup = InlineKeyboardMarkup(row_width=2)
-    for country in countries:
+    for country in page_countries:
         markup.add(InlineKeyboardButton(
-            f"❌ {country['name']}",
+            f"🗑 {country['name']}",
             callback_data=f"remove_country_{country['name']}"
         ))
+
+    nav = []
+    if page > 1:
+        nav.append(InlineKeyboardButton("◀️ Prev", callback_data=f"rmv_page_{page-1}"))
+    if page < total_pages:
+        nav.append(InlineKeyboardButton("▶️ Next", callback_data=f"rmv_page_{page+1}"))
+    if nav:
+        markup.add(*nav)
+
     markup.add(InlineKeyboardButton("⬅️ Back", callback_data="manage_countries"))
-    
+
     sent_msg = bot.send_message(
         chat_id,
-        "🗑️ **Remove Country**\n\nSelect a country to remove:",
-        reply_markup=markup,
-        parse_mode="Markdown"
+        f"🗑️ <b>Remove Country</b>\n"
+        f"Page <b>{page}/{total_pages}</b> — Select a country to remove:",
+        reply_markup=markup, parse_mode="HTML"
     )
     user_last_message[chat_id] = sent_msg.message_id
 
