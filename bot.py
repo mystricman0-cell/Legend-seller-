@@ -2597,14 +2597,20 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 bot.answer_callback_query(call.id, "🗑 Cleaning...", show_alert=False)
                 try:
                     results = _run_mongo_cleanup()
+                    total = sum(results.values())
+                    db_info = _get_db_stats()
                     bot.send_message(
                         call.message.chat.id,
                         f"✅ <b>MongoDB Cleanup Complete!</b>\n\n"
-                        f"🗑 OTP Sessions removed: <b>{results['otp_sessions']}</b>\n"
-                        f"🗑 Used Accounts removed: <b>{results['used_accounts']}</b>\n"
-                        f"🗑 Old Recharges removed: <b>{results['old_recharges']}</b>\n"
-                        f"🗑 Old Orders removed: <b>{results['old_orders']}</b>\n\n"
-                        f"💾 Database is clean now!",
+                        f"🗑 OTP Sessions: <b>{results['otp_sessions']}</b>\n"
+                        f"🗑 Used Accounts: <b>{results['used_accounts']}</b>\n"
+                        f"🗑 Old Recharges: <b>{results['old_recharges']}</b>\n"
+                        f"🗑 Old Orders: <b>{results['old_orders']}</b>\n"
+                        f"🗑 Old Transactions: <b>{results['old_transactions']}</b>\n"
+                        f"🗑 Old Referrals: <b>{results['old_referrals']}</b>\n"
+                        f"🗑 Old Coupons: <b>{results['old_coupons']}</b>\n\n"
+                        f"📦 <b>Total Removed:</b> {total}\n"
+                        f"💾 <b>DB:</b> <code>{db_info}</code>",
                         parse_mode="HTML"
                     )
                 except Exception as e:
@@ -5347,34 +5353,69 @@ def ask_unban_user(message):
 
 def _run_mongo_cleanup():
     """Clean expired/old data from MongoDB collections"""
-    from datetime import timedelta
     now = datetime.utcnow()
 
-    # Remove OTP sessions older than 2 hours
-    otp_cutoff = now - timedelta(hours=2)
-    r1 = otp_sessions_col.delete_many({"created_at": {"$lt": otp_cutoff}}) if hasattr(otp_sessions_col, 'delete_many') else type('r', (), {'deleted_count': 0})()
+    # OTP sessions older than 2 hours
+    r1 = otp_sessions_col.delete_many({"created_at": {"$lt": now - timedelta(hours=2)}})
 
-    # Remove used accounts older than 30 days
-    acc_cutoff = now - timedelta(days=30)
-    r2 = accounts_col.delete_many({"used": True, "used_at": {"$lt": acc_cutoff}})
+    # Used accounts older than 30 days
+    r2 = accounts_col.delete_many({"used": True, "used_at": {"$lt": now - timedelta(days=30)}})
 
-    # Remove old processed recharge requests (>60 days)
-    rech_cutoff = now - timedelta(days=60)
+    # Old processed recharge requests (>60 days)
     r3 = recharges_col.delete_many({
         "status": {"$in": ["approved", "cancelled"]},
-        "processed_at": {"$lt": rech_cutoff}
+        "processed_at": {"$lt": now - timedelta(days=60)}
     })
 
-    # Remove old orders (>60 days)
-    order_cutoff = now - timedelta(days=60)
-    r4 = orders_col.delete_many({"created_at": {"$lt": order_cutoff}})
+    # Old orders (>60 days)
+    r4 = orders_col.delete_many({"created_at": {"$lt": now - timedelta(days=60)}})
+
+    # Old transactions (>90 days)
+    r5 = transactions_col.delete_many({"created_at": {"$lt": now - timedelta(days=90)}})
+
+    # Old referral records (>90 days)
+    r6 = referrals_col.delete_many({"created_at": {"$lt": now - timedelta(days=90)}})
+
+    # Expired/used coupons older than 30 days
+    r7 = coupons_col.delete_many({
+        "status": {"$in": ["used", "expired", "disabled"]},
+        "created_at": {"$lt": now - timedelta(days=30)}
+    })
 
     return {
-        "otp_sessions": r1.deleted_count if hasattr(r1, 'deleted_count') else 0,
-        "used_accounts": r2.deleted_count,
-        "old_recharges": r3.deleted_count,
-        "old_orders": r4.deleted_count
+        "otp_sessions": getattr(r1, 'deleted_count', 0),
+        "used_accounts": getattr(r2, 'deleted_count', 0),
+        "old_recharges": getattr(r3, 'deleted_count', 0),
+        "old_orders": getattr(r4, 'deleted_count', 0),
+        "old_transactions": getattr(r5, 'deleted_count', 0),
+        "old_referrals": getattr(r6, 'deleted_count', 0),
+        "old_coupons": getattr(r7, 'deleted_count', 0),
     }
+
+
+def _get_db_stats():
+    """Return DB size info as a string"""
+    try:
+        stats = db.command("dbStats")
+        size_mb = stats.get("dataSize", 0) / (1024 * 1024)
+        storage_mb = stats.get("storageSize", 0) / (1024 * 1024)
+        collections = stats.get("collections", 0)
+        objects = stats.get("objects", 0)
+        return f"{size_mb:.2f} MB data | {storage_mb:.2f} MB storage | {objects} docs | {collections} cols"
+    except:
+        return "N/A"
+
+
+def _auto_cleanup_scheduler():
+    """Background thread — runs cleanup every 24 hours automatically"""
+    while True:
+        time.sleep(86400)  # 24 hours
+        try:
+            results = _run_mongo_cleanup()
+            total = sum(results.values())
+            logger.info(f"[Auto-Cleanup] Removed {total} stale records: {results}")
+        except Exception as e:
+            logger.error(f"[Auto-Cleanup] Error: {e}")
 
 
 def show_user_ranking(chat_id):
