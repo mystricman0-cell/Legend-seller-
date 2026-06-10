@@ -6141,12 +6141,13 @@ def cmd_clearaccounts(message):
 
 # =============================================================
 
-@bot.message_handler(commands=['cleanmongo'])
+@bot.message_handler(commands=['cleanmongo', 'clean'])
 def cmd_cleanmongo(message):
     user_id = message.from_user.id
     if not is_super_admin(user_id):
         bot.reply_to(message, "❌ Only owner can run this command.")
         return
+    db_info = _get_db_stats()
     markup = InlineKeyboardMarkup(row_width=2)
     markup.add(
         InlineKeyboardButton("✅ Yes, Clean Now", callback_data="cleanmongo_run"),
@@ -6154,13 +6155,17 @@ def cmd_cleanmongo(message):
     )
     bot.send_message(
         message.chat.id,
-        "⚠️ <b>MongoDB Cleanup</b>\n\n"
-        "This will delete:\n"
-        "• OTP sessions older than 2 hours\n"
-        "• Used accounts older than 30 days\n"
-        "• Old recharge records older than 60 days\n"
-        "• Old orders older than 60 days\n\n"
-        "<b>Confirm?</b>",
+        "🧹 <b>MongoDB Cleanup</b>\n\n"
+        f"💾 <b>Current DB:</b> <code>{db_info}</code>\n\n"
+        "Yeh delete hoga:\n"
+        "• OTP sessions &gt; 2 ghante purane\n"
+        "• Used accounts &gt; 30 din purane\n"
+        "• Old recharges &gt; 60 din purane\n"
+        "• Old orders &gt; 60 din purane\n"
+        "• Old transactions &gt; 90 din purane\n"
+        "• Old referrals &gt; 90 din purane\n"
+        "• Used/expired coupons &gt; 30 din purane\n\n"
+        "<b>Confirm karo?</b>",
         reply_markup=markup,
         parse_mode="HTML"
     )
@@ -6618,6 +6623,45 @@ if __name__ == "__main__":
         logger.info("✅ Admin indexes created")
     except Exception as e:
         logger.error(f"❌ Failed to create admin indexes: {e}")
+
+    # TTL Indexes — MongoDB auto-expires old documents
+    try:
+        otp_sessions_col.create_index([("created_at", 1)], expireAfterSeconds=7200)        # 2 hrs
+        recharges_col.create_index([("processed_at", 1)], expireAfterSeconds=5184000)       # 60 days
+        transactions_col.create_index([("created_at", 1)], expireAfterSeconds=7776000)      # 90 days
+        referrals_col.create_index([("created_at", 1)], expireAfterSeconds=7776000)         # 90 days
+        logger.info("✅ TTL indexes created — MongoDB will auto-expire old data")
+    except Exception as e:
+        logger.error(f"❌ TTL indexes error: {e}")
+
+    # Start auto-cleanup background thread (runs every 24 hours)
+    threading.Thread(target=_auto_cleanup_scheduler, daemon=True, name="AutoCleanup").start()
+    logger.info("✅ Auto-cleanup scheduler started (runs every 24h)")
+
+    # Register commands with BotFather
+    try:
+        from telebot.types import BotCommand
+        user_cmds = [
+            BotCommand("start",          "🏠 Main menu"),
+            BotCommand("cancel",         "❌ Sab kuch cancel karo"),
+        ]
+        admin_cmds = user_cmds + [
+            BotCommand("stats",          "📊 Bot stats dekhein"),
+            BotCommand("clean",          "🧹 MongoDB junk clean karo"),
+            BotCommand("cleanmongo",     "🧹 MongoDB cleanup (same as /clean)"),
+            BotCommand("clearaccounts",  "🗑️ Accounts clear karo"),
+            BotCommand("addadmin",       "➕ Naya admin add karo"),
+            BotCommand("removeadmin",    "➖ Admin remove karo"),
+            BotCommand("restart",        "♻️ Bot restart karo"),
+            BotCommand("sendbroadcast",  "📢 Broadcast message bhejo"),
+            BotCommand("resetbroadcast", "🔄 Broadcast reset karo"),
+            BotCommand("loadallcountries", "🌍 Sab countries load karo"),
+        ]
+        bot.set_my_commands(user_cmds)
+        bot.set_my_commands(admin_cmds, scope=telebot.types.BotCommandScopeChat(ADMIN_ID))
+        logger.info("✅ BotFather commands registered")
+    except Exception as e:
+        logger.error(f"❌ BotFather commands error: {e}")
 
     # Set webhook — clears any other polling/webhook session automatically
     if REPLIT_DOMAIN:
