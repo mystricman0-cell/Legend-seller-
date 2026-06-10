@@ -6141,6 +6141,76 @@ def cmd_clearaccounts(message):
 
 # =============================================================
 
+@bot.message_handler(commands=['dbstats'])
+def cmd_dbstats(message):
+    user_id = message.from_user.id
+    if not is_super_admin(user_id):
+        bot.reply_to(message, "❌ Only owner can run this command.")
+        return
+    try:
+        stats = db.command("dbStats")
+        data_mb    = stats.get("dataSize", 0)    / (1024 * 1024)
+        storage_mb = stats.get("storageSize", 0) / (1024 * 1024)
+        index_mb   = stats.get("indexSize", 0)   / (1024 * 1024)
+        total_docs = stats.get("objects", 0)
+        num_cols   = stats.get("collections", 0)
+
+        # Per-collection breakdown
+        col_lines = []
+        col_names = [
+            ("users",        users_col),
+            ("accounts",     accounts_col),
+            ("orders",       orders_col),
+            ("wallets",      wallets_col),
+            ("recharges",    recharges_col),
+            ("otp_sessions", otp_sessions_col),
+            ("transactions", transactions_col),
+            ("referrals",    referrals_col),
+            ("coupons",      coupons_col),
+            ("banned_users", banned_users_col),
+            ("admins",       admins_col),
+        ]
+        for name, col in col_names:
+            try:
+                cs = db.command("collStats", name)
+                c_size = cs.get("size", 0) / 1024
+                c_docs = cs.get("count", 0)
+                col_lines.append(f"  <code>{name:<14}</code> {c_docs:>6} docs  {c_size:>7.1f} KB")
+            except:
+                col_lines.append(f"  <code>{name:<14}</code>  —")
+
+        # Warning logic
+        WARNING_MB = 400
+        DANGER_MB  = 450
+        if data_mb >= DANGER_MB:
+            status = "🔴 <b>DANGER — DB almost full! Run /clean now!</b>"
+        elif data_mb >= WARNING_MB:
+            status = "🟡 <b>WARNING — DB getting full. Consider /clean.</b>"
+        else:
+            status = "🟢 <b>DB healthy</b>"
+
+        col_text = "\n".join(col_lines)
+        text = (
+            f"📦 <b>MongoDB Stats</b>\n"
+            f"<code>━━━━━━━━━━━━━━━━━━━━━━━━</code>\n\n"
+            f"{status}\n\n"
+            f"<b>💾 Storage</b>\n"
+            f"  Data:     <b>{data_mb:.2f} MB</b>\n"
+            f"  Storage:  <b>{storage_mb:.2f} MB</b>\n"
+            f"  Indexes:  <b>{index_mb:.2f} MB</b>\n"
+            f"  Docs:     <b>{total_docs:,}</b>\n"
+            f"  Cols:     <b>{num_cols}</b>\n\n"
+            f"<b>📋 Collections</b>\n"
+            f"{col_text}\n\n"
+            f"<code>━━━━━━━━━━━━━━━━━━━━━━━━</code>\n"
+            f"💡 <i>Run /clean to free up space</i>"
+        )
+        bot.send_message(message.chat.id, text, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"/dbstats error: {e}")
+        bot.send_message(message.chat.id, f"❌ Error fetching DB stats: {e}")
+
+
 @bot.message_handler(commands=['cleanmongo', 'clean'])
 def cmd_cleanmongo(message):
     user_id = message.from_user.id
