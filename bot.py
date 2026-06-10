@@ -5764,13 +5764,16 @@ def show_countries(chat_id, page=1):
         start(bot.send_message(chat_id, "/start"))
         return
 
-    countries = get_all_countries()
+    all_countries = get_all_countries()
+    # Only show countries that have at least 1 account in stock
+    countries = [c for c in all_countries if get_available_accounts_count(c['name']) > 0]
+
     if not countries:
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("⬅️ Back", callback_data="back_to_menu"))
         sent_msg = bot.send_message(
             chat_id,
-            "🌍 <b>Select Country</b>\n\n❌ No countries available right now.",
+            "🌍 <b>Select Country</b>\n\n❌ Abhi koi bhi country available nahi hai. Baad mein try karo.",
             reply_markup=markup, parse_mode="HTML"
         )
         user_last_message[chat_id] = sent_msg.message_id
