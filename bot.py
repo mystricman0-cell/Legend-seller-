@@ -5136,31 +5136,55 @@ def admin_has_permission(admin_id, perm_key: str) -> bool:
     perms = adm.get("permissions", {})
     return perms.get(perm_key, True)
 
-def show_country_management(chat_id):
+def show_country_management(chat_id, page=1):
     if not is_admin(chat_id):
         bot.send_message(chat_id, "❌ Unauthorized access")
         return
-    
+
     countries = get_all_countries()
+    PAGE_SIZE = 8
+    total = len(countries)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * PAGE_SIZE
+    page_countries = countries[start_idx:start_idx + PAGE_SIZE]
+
+    markup = InlineKeyboardMarkup(row_width=1)
+
     if not countries:
-        text = "🌍 **Country Management**\n\nNo countries available. Add a country first."
+        text = "🌍 <b>Country Management</b>\n\nNo countries available. Add one first."
     else:
-        text = "🌍 **Country Management**\n\n**Available Countries:**\n"
-        for country in countries:
-            accounts_count = get_available_accounts_count(country['name'])
-            text += f"• {country['name']} - Price: {format_currency(country['price'])} - Accounts: {accounts_count}\n"
-    
-    markup = InlineKeyboardMarkup(row_width=2)
+        text = (
+            f"🌍 <b>Country Management</b>\n"
+            f"<code>━━━━━━━━━━━━━━━━━━</code>\n"
+            f"📋 Total: <b>{total}</b> | Page <b>{page}/{total_pages}</b>\n\n"
+            f"Tap a country to see its stock & price:"
+        )
+        for country in page_countries:
+            cnt = get_available_accounts_count(country['name'])
+            stock_icon = "✅" if cnt > 0 else "❌"
+            markup.add(InlineKeyboardButton(
+                f"{stock_icon} {country['name']} | {format_currency(country['price'])} | {cnt} acc",
+                callback_data=f"mgmt_country_{country['name']}"
+            ))
+
+    # Pagination nav
+    nav = []
+    if page > 1:
+        nav.append(InlineKeyboardButton("◀️ Prev", callback_data=f"mgmt_page_{page-1}"))
+    if page < total_pages:
+        nav.append(InlineKeyboardButton("▶️ Next", callback_data=f"mgmt_page_{page+1}"))
+    if nav:
+        markup.add(*nav)
+
     markup.add(
         InlineKeyboardButton("➕ Add Country", callback_data="add_country"),
         InlineKeyboardButton("✏️ Edit Price", callback_data="edit_price")
     )
-    markup.add(
-        InlineKeyboardButton("➖ Remove Country", callback_data="remove_country")
-    )
+    markup.add(InlineKeyboardButton("➖ Remove Country", callback_data="remove_country"))
     markup.add(InlineKeyboardButton("⬅️ Back to Admin", callback_data="admin_panel"))
-    
-    sent_msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+
+    sent_msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML")
     user_last_message[chat_id] = sent_msg.message_id
 
 def ask_country_name(message):
