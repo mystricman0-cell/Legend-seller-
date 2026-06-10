@@ -541,6 +541,7 @@ upi_payment_states = {}
 fampay_auto_states = {}       # UTR/screenshot formality for FamPay Auto
 fampay_approved_orders = set() # Orders already credited (prevent double-credit)
 fampay_notified_orders = set() # Orders already sent final msg (prevent double-notify)
+fampay_cancelled_users = set() # Users who cancelled — stops poll thread
 admin_add_state = {}  # For /addadmin flow
 admin_remove_state = {}  # For /removeadmin flow
 
