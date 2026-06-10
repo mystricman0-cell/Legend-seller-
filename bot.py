@@ -3936,6 +3936,9 @@ def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float
     deadline = time.time() + timeout_secs
     while time.time() < deadline:
         time.sleep(8)
+        if user_id in fampay_cancelled_users:
+            fampay_cancelled_users.discard(user_id)
+            return  # User cancelled via /cancel
         if order_id in fampay_approved_orders:
             return  # Already credited
         if order_id in fampay_notified_orders:
@@ -6124,21 +6127,33 @@ def cmd_cleanmongo(message):
 
 @bot.message_handler(commands=['cancel'])
 def cancel_command(msg):
-    """Clear all pending states and return to main menu"""
+    """Clear ALL pending states and return to main menu"""
     user_id = msg.from_user.id
     chat_id = msg.chat.id
-    # Clear all state dicts
+
+    # Stop FamPay background poll thread
+    fampay_cancelled_users.add(user_id)
+
+    # Clear ALL state dicts
     upi_payment_states.pop(user_id, None)
     fampay_auto_states.pop(user_id, None)
     recharge_method_state.pop(user_id, None)
+    user_stage.pop(user_id, None)
     user_stage.pop(chat_id, None)
     login_states.pop(user_id, None)
     edit_price_state.pop(user_id, None)
     coupon_state.pop(user_id, None)
+    admin_deduct_state.pop(user_id, None)
+    cancellation_trackers.pop(user_id, None)
+    admin_add_state.pop(user_id, None)
+    admin_remove_state.pop(user_id, None)
+    broadcast_data.pop(user_id, None)
+
     # Clear telebot next-step handlers
     try:
         bot.clear_step_handler_by_chat_id(chat_id)
     except: pass
+
     bot.send_message(
         chat_id,
         "❌ <b>Cancelled.</b>\n\nReturning to main menu...",
