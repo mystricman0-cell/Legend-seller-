@@ -2825,6 +2825,18 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                     pg = 1
                 show_country_management(call.message.chat.id, page=pg)
 
+        elif data == "mgmt_show_empty":
+            if is_admin(user_id):
+                show_country_management(call.message.chat.id, page=1, show_empty=True)
+
+        elif data.startswith("mgmt_empty_page_"):
+            if is_admin(user_id):
+                try:
+                    pg = int(data.split("_")[-1])
+                except:
+                    pg = 1
+                show_country_management(call.message.chat.id, page=pg, show_empty=True)
+
         elif data.startswith("mgmt_country_"):
             if is_admin(user_id):
                 country_name = data[len("mgmt_country_"):]
@@ -6314,6 +6326,26 @@ def cmd_dbstats(message):
         logger.error(f"/dbstats error: {e}")
         bot.send_message(message.chat.id, f"❌ Error fetching DB stats: {e}")
 
+
+@bot.message_handler(commands=['emptycountries'])
+def cmd_empty_countries(message):
+    user_id = message.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(message, "❌ Sirf admins ke liye.")
+        return
+    all_countries = get_all_countries()
+    empty = [c for c in all_countries if get_available_accounts_count(c['name']) == 0]
+    if not empty:
+        bot.reply_to(message, "✅ <b>Sabhi countries mein stock available hai!</b>\nKoi bhi country 0-stock nahi hai.", parse_mode="HTML")
+        return
+    lines = "\n".join([f"• {c['name']} — {format_currency(c['price'])}" for c in empty])
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("📭 Manage Empty Countries", callback_data="mgmt_show_empty"))
+    bot.send_message(
+        message.chat.id,
+        f"📭 <b>0-Stock Countries ({len(empty)} total):</b>\n\n{lines}",
+        reply_markup=markup, parse_mode="HTML"
+    )
 
 @bot.message_handler(commands=['cleanmongo', 'clean'])
 def cmd_cleanmongo(message):
