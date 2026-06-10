@@ -1106,7 +1106,11 @@ def format_currency(x):
         return "₹0"
 
 def get_available_accounts_count(country):
-    return accounts_col.count_documents({"country": country, "status": "active", "used": False})
+    import re as _re
+    return accounts_col.count_documents({
+        "country": {"$regex": f"^{_re.escape(country)}$", "$options": "i"},
+        "status": "active", "used": False
+    })
 
 def is_user_banned(user_id):
     banned = banned_users_col.find_one({"user_id": user_id, "status": "active"})
