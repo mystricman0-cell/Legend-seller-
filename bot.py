@@ -5171,12 +5171,20 @@ def admin_has_permission(admin_id, perm_key: str) -> bool:
     perms = adm.get("permissions", {})
     return perms.get(perm_key, True)
 
-def show_country_management(chat_id, page=1):
+def show_country_management(chat_id, page=1, show_empty=False):
     if not is_admin(chat_id):
         bot.send_message(chat_id, "❌ Unauthorized access")
         return
 
-    countries = get_all_countries()
+    all_countries = get_all_countries()
+    # By default only show countries WITH stock; show_empty=True shows 0-stock ones
+    if show_empty:
+        countries = [c for c in all_countries if get_available_accounts_count(c['name']) == 0]
+        section_label = "📭 Empty Countries (0 Stock)"
+    else:
+        countries = [c for c in all_countries if get_available_accounts_count(c['name']) > 0]
+        section_label = "🌍 Country Management (In Stock)"
+
     PAGE_SIZE = 8
     total = len(countries)
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
@@ -5187,13 +5195,16 @@ def show_country_management(chat_id, page=1):
     markup = InlineKeyboardMarkup(row_width=1)
 
     if not countries:
-        text = "🌍 <b>Country Management</b>\n\nNo countries available. Add one first."
+        if show_empty:
+            text = "📭 <b>Empty Countries</b>\n\n✅ Sabhi countries mein stock available hai!"
+        else:
+            text = "🌍 <b>Country Management</b>\n\n❌ Kisi bhi country mein stock nahi. Pehle accounts add karo."
     else:
         text = (
-            f"🌍 <b>Country Management</b>\n"
+            f"<b>{section_label}</b>\n"
             f"<code>━━━━━━━━━━━━━━━━━━</code>\n"
             f"📋 Total: <b>{total}</b> | Page <b>{page}/{total_pages}</b>\n\n"
-            f"Tap a country to see its stock & price:"
+            f"Tap a country to see its details:"
         )
         for country in page_countries:
             cnt = get_available_accounts_count(country['name'])
@@ -5205,18 +5216,33 @@ def show_country_management(chat_id, page=1):
 
     # Pagination nav
     nav = []
-    if page > 1:
-        nav.append(InlineKeyboardButton("◀️ Prev", callback_data=f"mgmt_page_{page-1}"))
-    if page < total_pages:
-        nav.append(InlineKeyboardButton("▶️ Next", callback_data=f"mgmt_page_{page+1}"))
+    if show_empty:
+        if page > 1:
+            nav.append(InlineKeyboardButton("◀️ Prev", callback_data=f"mgmt_empty_page_{page-1}"))
+        if page < total_pages:
+            nav.append(InlineKeyboardButton("▶️ Next", callback_data=f"mgmt_empty_page_{page+1}"))
+    else:
+        if page > 1:
+            nav.append(InlineKeyboardButton("◀️ Prev", callback_data=f"mgmt_page_{page-1}"))
+        if page < total_pages:
+            nav.append(InlineKeyboardButton("▶️ Next", callback_data=f"mgmt_page_{page+1}"))
     if nav:
         markup.add(*nav)
 
-    markup.add(
-        InlineKeyboardButton("➕ Add Country", callback_data="add_country"),
-        InlineKeyboardButton("✏️ Edit Price", callback_data="edit_price")
-    )
-    markup.add(InlineKeyboardButton("➖ Remove Country", callback_data="remove_country"))
+    if not show_empty:
+        markup.add(InlineKeyboardButton("📭 Empty Countries", callback_data="mgmt_show_empty"))
+        markup.add(
+            InlineKeyboardButton("➕ Add Country", callback_data="add_country"),
+            InlineKeyboardButton("✏️ Edit Price", callback_data="edit_price")
+        )
+        markup.add(InlineKeyboardButton("➖ Remove Country", callback_data="remove_country"))
+    else:
+        markup.add(
+            InlineKeyboardButton("➕ Add Country", callback_data="add_country"),
+            InlineKeyboardButton("➖ Remove Country", callback_data="remove_country")
+        )
+        markup.add(InlineKeyboardButton("📦 In-Stock Countries", callback_data="manage_countries"))
+
     markup.add(InlineKeyboardButton("⬅️ Back to Admin", callback_data="admin_panel"))
 
     sent_msg = bot.send_message(chat_id, text, reply_markup=markup, parse_mode="HTML")
