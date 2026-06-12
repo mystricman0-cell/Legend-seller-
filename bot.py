@@ -7694,31 +7694,66 @@ if __name__ == "__main__":
     threading.Thread(target=_auto_cleanup_scheduler, daemon=True, name="AutoCleanup").start()
     logger.info("✅ Auto-cleanup scheduler started (runs every 24h)")
 
-    # Register commands with BotFather
+    # Register commands with BotFather — 40 commands total
     try:
         from telebot.types import BotCommand
         user_cmds = [
             BotCommand("start",          "🏠 Main menu"),
+            BotCommand("help",           "📖 Help & guide dekhein"),
+            BotCommand("menu",           "📋 Menu wapas lao"),
+            BotCommand("balance",        "💰 Wallet balance check karo"),
+            BotCommand("wallet",         "💳 Wallet details dekhein"),
+            BotCommand("recharge",       "💳 Paisa add karo wallet mein"),
+            BotCommand("buy",            "🛒 Telegram account kharido"),
+            BotCommand("refer",          "👥 Referral link lo aur kamao"),
+            BotCommand("invite",         "🔗 Invite link share karo"),
+            BotCommand("redeem",         "🎁 Coupon code lagao"),
+            BotCommand("daily",          "🎁 Daily bonus claim karo"),
+            BotCommand("profile",        "👤 Apna profile dekhein"),
+            BotCommand("history",        "📋 Transaction history"),
+            BotCommand("rank",           "🎖️ Apni rank dekhein"),
+            BotCommand("leaderboard",    "🏆 Top users ki list"),
+            BotCommand("countries",      "🌍 Available countries & stock"),
+            BotCommand("prices",         "💡 Price list dekhein"),
+            BotCommand("status",         "📊 Bot live status check karo"),
+            BotCommand("ping",           "🏓 Bot ping test"),
+            BotCommand("id",             "🆔 Apna Telegram ID dekhein"),
+            BotCommand("time",           "🕐 Server time dekhein"),
+            BotCommand("ai",             "🤖 DRS X AI mode toggle karo"),
+            BotCommand("faq",            "❓ Common sawaalon ke jawab"),
+            BotCommand("rules",          "📜 Bot rules padhein"),
+            BotCommand("contact",        "📞 Owner/support contact"),
+            BotCommand("support",        "🛠️ Admin se madad lo"),
             BotCommand("cancel",         "❌ Sab kuch cancel karo"),
         ]
         admin_cmds = user_cmds + [
-            BotCommand("stats",            "📊 Bot stats dekhein"),
-            BotCommand("dbstats",          "📦 MongoDB storage & collection sizes"),
-            BotCommand("clean",            "🧹 MongoDB junk clean karo"),
-            BotCommand("cleanmongo",       "🧹 MongoDB cleanup (same as /clean)"),
-            BotCommand("clearaccounts",    "🗑️ Accounts clear karo"),
-            BotCommand("emptycountries",   "📭 0-stock countries ki list dekhein"),
-            BotCommand("cleanempty",       "🗑️ Sabhi 0-stock countries permanently remove karo"),
-            BotCommand("addadmin",         "➕ Naya admin add karo"),
-            BotCommand("removeadmin",      "➖ Admin remove karo"),
-            BotCommand("restart",          "♻️ Bot restart karo"),
+            BotCommand("stats",            "📊 Full bot statistics"),
+            BotCommand("dbstats",          "📦 MongoDB storage sizes"),
+            BotCommand("userinfo",         "👤 Kisi bhi user ki info"),
+            BotCommand("totalusers",       "👥 Total user count"),
+            BotCommand("totalaccounts",    "📱 Account stock stats"),
+            BotCommand("addbalance",       "➕ User ko balance do"),
+            BotCommand("deduct",           "➖ User se balance kaato"),
+            BotCommand("ban",              "🚫 User ban karo"),
+            BotCommand("unban",            "✅ User unban karo"),
+            BotCommand("listcoupons",      "🎟️ All active coupons"),
+            BotCommand("addadmin",         "👑 Naya admin add karo"),
+            BotCommand("removeadmin",      "🗑️ Admin remove karo"),
+            BotCommand("maintenance",      "⚙️ Maintenance mode toggle"),
+            BotCommand("broadcast",        "📢 Broadcast shortcut"),
             BotCommand("sendbroadcast",    "📢 Broadcast message bhejo"),
             BotCommand("resetbroadcast",   "🔄 Broadcast reset karo"),
             BotCommand("loadallcountries", "🌍 Sab countries load karo"),
+            BotCommand("clearaccounts",    "🗑️ Accounts clear karo"),
+            BotCommand("emptycountries",   "📭 0-stock countries ki list"),
+            BotCommand("cleanempty",       "🗑️ 0-stock countries remove karo"),
+            BotCommand("clean",            "🧹 MongoDB junk clean karo"),
+            BotCommand("cleanmongo",       "🧹 MongoDB cleanup"),
+            BotCommand("restart",          "♻️ Bot restart karo"),
         ]
         bot.set_my_commands(user_cmds)
         bot.set_my_commands(admin_cmds, scope=telebot.types.BotCommandScopeChat(ADMIN_ID))
-        logger.info("✅ BotFather commands registered")
+        logger.info(f"✅ BotFather commands registered — {len(user_cmds)} user + {len(admin_cmds)} admin")
     except Exception as e:
         logger.error(f"❌ BotFather commands error: {e}")
 
