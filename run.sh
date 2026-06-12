@@ -5,6 +5,10 @@ RESTART_DELAY=5
 CRASH_COUNT=0
 
 while true; do
+    # Kill any leftover process holding port 8080
+    fuser -k 8080/tcp 2>/dev/null || true
+    sleep 1
+
     echo "▶️  Starting bot.py... (restart #$CRASH_COUNT)"
     python bot.py
     EXIT_CODE=$?
