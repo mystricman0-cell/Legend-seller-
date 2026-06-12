@@ -28,12 +28,11 @@ name = "Start application"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "bash run.sh"
-waitForPort = 5000
 
 [[workflows.workflow]]
 name = "GitHub Auto-Sync"
