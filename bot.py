@@ -7603,7 +7603,7 @@ from flask import Flask, request as flask_request, abort
 flask_app = Flask(__name__)
 
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-WEBHOOK_PORT = int(os.getenv("PORT", 8080))
+WEBHOOK_PORT = int(os.getenv("PORT", 5000))
 REPLIT_DOMAIN = os.getenv("REPLIT_DEV_DOMAIN", "")
 
 @flask_app.route(WEBHOOK_PATH, methods=["POST"])
