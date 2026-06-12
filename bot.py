@@ -6544,6 +6544,735 @@ def restart_bot(message):
     os.execv(sys.executable, ['python'] + sys.argv)
 
 # ---------------------------------------------------------------------
+# ANIMATED HELPER
+# ---------------------------------------------------------------------
+
+def _anim(chat_id, frames, delay=0.7):
+    """Send animated message — shows each frame with delay"""
+    try:
+        m = bot.send_message(chat_id, frames[0], parse_mode="HTML")
+        for f in frames[1:]:
+            time.sleep(delay)
+            try:
+                bot.edit_message_text(f, chat_id, m.message_id, parse_mode="HTML")
+            except: pass
+        return m
+    except Exception as e:
+        logger.error(f"_anim error: {e}")
+
+# ---------------------------------------------------------------------
+# 40 USER & ADMIN COMMANDS WITH ANIMATIONS
+# ---------------------------------------------------------------------
+
+@bot.message_handler(commands=['help'])
+def cmd_help(msg):
+    user_id = msg.from_user.id
+    frames = [
+        "⏳ <b>Loading Help...</b>",
+        "📖 <b>Loading Guide...</b>\n━━━━━━━━━━━━━━━━━━━━━",
+        (
+            "📖 <b>LEGENDARY OTP BOT — HELP</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "🛒 /buy — Account kharido\n"
+            "💰 /balance — Wallet balance\n"
+            "💳 /recharge — Paisa add karo\n"
+            "👥 /refer — Referral link lo\n"
+            "🎁 /redeem — Coupon lagao\n"
+            "🤖 /ai — DRS X AI toggle\n"
+            "👤 /profile — Apna profile\n"
+            "📋 /history — Transactions\n"
+            "🌍 /countries — Available countries\n"
+            "💡 /prices — Price list\n"
+            "❓ /faq — Common questions\n"
+            "📜 /rules — Bot rules\n"
+            "🛠️ /support — Admin se baat\n"
+            "❌ /cancel — Koi bhi kaam band karo\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "💎 <i>Legendary OTP Bot — Always #1</i>"
+        )
+    ]
+    _anim(msg.chat.id, frames)
+
+@bot.message_handler(commands=['id'])
+def cmd_id(msg):
+    uid = msg.from_user.id
+    uname = msg.from_user.username or "N/A"
+    fname = msg.from_user.first_name or "User"
+    frames = [
+        "🔍 <b>Fetching your ID...</b>",
+        (
+            "🪪 <b>YOUR TELEGRAM INFO</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>Name:</b> {fname}\n"
+            f"🆔 <b>User ID:</b> <code>{uid}</code>\n"
+            f"📛 <b>Username:</b> @{uname}\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "💡 <i>Apna ID copy karne ke liye upar tap karein</i>"
+        )
+    ]
+    _anim(msg.chat.id, frames, delay=0.6)
+
+@bot.message_handler(commands=['ping'])
+def cmd_ping(msg):
+    import time as _t
+    t0 = _t.time()
+    frames = [
+        "📡 <b>Pinging...</b> 🏓",
+        "📡 <b>Ping Pong!</b> 🏓\n⚡ Calculating...",
+    ]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.5)
+    ms = int((_t.time() - t0) * 1000)
+    emoji = "🟢" if ms < 300 else ("🟡" if ms < 700 else "🔴")
+    try:
+        bot.edit_message_text(
+            f"🏓 <b>PONG!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{emoji} <b>Response Time:</b> <code>{ms}ms</code>\n"
+            f"✅ <b>Bot Status:</b> Online & Active\n"
+            f"🚀 <b>Server:</b> Replit Cloud\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>⚡ Legendary OTP Bot — Always Fast!</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except: pass
+
+@bot.message_handler(commands=['status'])
+def cmd_status(msg):
+    frames = [
+        "⚙️ <b>System Check...</b>",
+        "⚙️ <b>Checking MongoDB...</b> 🔄",
+        "⚙️ <b>Checking Accounts...</b> 🔄",
+    ]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.6)
+    try:
+        bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.6)
+    try:
+        bot.edit_message_text(frames[2], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.6)
+    try:
+        total_users = users_col.count_documents({})
+        total_accounts = accounts_col.count_documents({"status": "active", "used": False})
+        total_countries = countries_col.count_documents({"status": "active"})
+        db_ok = "🟢 Online"
+    except:
+        db_ok = "🔴 Error"
+        total_users = total_accounts = total_countries = "?"
+    try:
+        bot.edit_message_text(
+            f"📊 <b>BOT LIVE STATUS</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🤖 <b>Bot:</b> 🟢 Online\n"
+            f"🗄️ <b>Database:</b> {db_ok}\n"
+            f"👥 <b>Total Users:</b> {total_users}\n"
+            f"📱 <b>Available Accounts:</b> {total_accounts}\n"
+            f"🌍 <b>Active Countries:</b> {total_countries}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>⚡ Everything running smooth!</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except: pass
+
+@bot.message_handler(commands=['profile'])
+def cmd_profile(msg):
+    user_id = msg.from_user.id
+    fname = msg.from_user.first_name or "User"
+    frames = [
+        "👤 <b>Loading Profile...</b>",
+        "👤 <b>Fetching your data...</b> ⏳",
+    ]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.7)
+    try:
+        bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.6)
+    try:
+        bal = get_balance(user_id)
+        user_data = users_col.find_one({"user_id": user_id}) or {}
+        uname = user_data.get("username") or msg.from_user.username or "N/A"
+        joined = user_data.get("created_at")
+        joined_str = joined.strftime("%d %b %Y") if joined else "N/A"
+        referrals = user_data.get("referral_count", 0)
+        bot.edit_message_text(
+            f"👤 <b>MY PROFILE</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📛 <b>Name:</b> {fname}\n"
+            f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
+            f"📛 <b>Username:</b> @{uname}\n"
+            f"💰 <b>Wallet:</b> {format_currency(bal)}\n"
+            f"👥 <b>Referrals:</b> {referrals}\n"
+            f"📅 <b>Joined:</b> {joined_str}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>🌟 Legendary OTP Bot Member</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Profile cmd error: {e}")
+
+@bot.message_handler(commands=['history'])
+def cmd_history(msg):
+    user_id = msg.from_user.id
+    frames = ["📋 <b>Loading History...</b>", "📋 <b>Fetching transactions...</b> ⏳"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.7)
+    try: bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.6)
+    try:
+        recharges = list(db['recharges'].find({"user_id": user_id, "status": "approved"}).sort("timestamp", -1).limit(5))
+        if recharges:
+            lines = "\n".join([
+                f"✅ +{format_currency(r.get('amount',0))} — {r.get('method','UPI')} ({r.get('timestamp', datetime.utcnow()).strftime('%d %b')})"
+                for r in recharges
+            ])
+        else:
+            lines = "<i>Koi transaction nahi mila abhi tak.</i>"
+        bot.edit_message_text(
+            f"📋 <b>RECENT TRANSACTIONS</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{lines}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Last 5 approved recharges shown</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"History cmd error: {e}")
+
+@bot.message_handler(commands=['countries'])
+def cmd_countries(msg):
+    frames = ["🌍 <b>Loading Countries...</b>", "🌍 <b>Fetching stock list...</b> ⏳"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.7)
+    try: bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.6)
+    try:
+        countries = list(countries_col.find({"status": "active"}).sort("name", 1).limit(30))
+        if countries:
+            lines = ""
+            for c in countries:
+                name = c.get("name", "")
+                flag = COUNTRY_FLAGS.get(name.lower(), "🌐")
+                price = c.get("price", 0)
+                stock = get_available_accounts_count(name)
+                lines += f"{flag} <b>{name}</b> — ₹{price} | Stock: {stock}\n"
+        else:
+            lines = "<i>Koi country available nahi hai abhi.</i>"
+        bot.edit_message_text(
+            f"🌍 <b>AVAILABLE COUNTRIES</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{lines}"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Use /buy to purchase</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Countries cmd error: {e}")
+
+@bot.message_handler(commands=['prices'])
+def cmd_prices(msg):
+    frames = ["💡 <b>Loading Prices...</b>", "💡 <b>Fetching price list...</b> ⏳"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.6)
+    try: bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.5)
+    try:
+        countries = list(countries_col.find({"status": "active"}).sort("price", 1).limit(20))
+        if countries:
+            lines = ""
+            for c in countries:
+                name = c.get("name", "")
+                flag = COUNTRY_FLAGS.get(name.lower(), "🌐")
+                price = c.get("price", 0)
+                lines += f"{flag} {name} — <b>₹{price}</b>\n"
+        else:
+            lines = "<i>Price list available nahi hai.</i>"
+        bot.edit_message_text(
+            f"💡 <b>PRICE LIST</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{lines}"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Sorted by cheapest first</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Prices cmd error: {e}")
+
+@bot.message_handler(commands=['faq'])
+def cmd_faq(msg):
+    frames = ["❓ <b>Loading FAQ...</b>", "❓ <b>Preparing answers...</b> ⏳"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.6)
+    try: bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.5)
+    try:
+        bot.edit_message_text(
+            "❓ <b>FREQUENTLY ASKED QUESTIONS</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "<b>Q: Account kaise kharidu?</b>\n"
+            "→ Recharge karo → /buy → Country select karo\n\n"
+            "<b>Q: OTP kab aayega?</b>\n"
+            "→ Account se Telegram login karo, OTP 1-2 min mein aayega\n\n"
+            "<b>Q: Paisa kaise add karu?</b>\n"
+            "→ /recharge → UPI/Crypto method select karo\n\n"
+            "<b>Q: Referral kya hai?</b>\n"
+            "→ Dost ko invite karo, unke recharge par 1.7% commission milega\n\n"
+            "<b>Q: Account kaam nahi kiya toh?</b>\n"
+            "→ /support pe contact karo, admin help karega\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "<i>Aur sawaal? /support type karo!</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"FAQ cmd error: {e}")
+
+@bot.message_handler(commands=['rules'])
+def cmd_rules(msg):
+    frames = ["📜 <b>Loading Rules...</b>", "📜 <b>Bot ke niyam...</b> ⏳"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.6)
+    try: bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.5)
+    try:
+        bot.edit_message_text(
+            "📜 <b>BOT RULES</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "✅ <b>Allowed:</b>\n"
+            "• Apne kaam ke liye accounts khareedna\n"
+            "• Referral se doston ko invite karna\n"
+            "• Support se madad maangna\n\n"
+            "❌ <b>Not Allowed:</b>\n"
+            "• Spam ya abuse karna\n"
+            "• Bot hack karne ki koshish\n"
+            "• Fake payment karna\n"
+            "• Multiple accounts banana\n\n"
+            "⚠️ <b>Rules todne par:</b>\n"
+            "• Permanent ban + balance freeze\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "<i>Fair use se sab ka fayda hoga! 🙏</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Rules cmd error: {e}")
+
+@bot.message_handler(commands=['time'])
+def cmd_time(msg):
+    now = datetime.now(timezone.utc)
+    ist = now + timedelta(hours=5, minutes=30)
+    frames = ["🕐 <b>Fetching time...</b>"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.5)
+    try:
+        bot.edit_message_text(
+            f"🕐 <b>CURRENT TIME</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🇮🇳 <b>IST:</b> {ist.strftime('%d %b %Y | %I:%M:%S %p')}\n"
+            f"🌐 <b>UTC:</b> {now.strftime('%d %b %Y | %H:%M:%S')}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>⚡ Bot always online — 24/7!</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except: pass
+
+@bot.message_handler(commands=['ai'])
+def cmd_ai_toggle(msg):
+    user_id = msg.from_user.id
+    if user_id in ai_mode_users:
+        ai_mode_users.discard(user_id)
+        status = "🔴 <b>OFF</b>"
+        tip = "Ab normal bot mode mein ho.\nMenu se kaam karo ya dobara /ai likho ON karne ke liye."
+    else:
+        ai_mode_users.add(user_id)
+        status = "🟢 <b>ON</b>"
+        tip = "Ab kuch bhi puchho — AI jawab dega!\nGeneral knowledge, coding, jokes — sab kuch!"
+    frames = [
+        "🤖 <b>DRS X AI Toggling...</b>",
+        f"🤖 <b>DRS X AI — {status}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{tip}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Menu ke liye /start press karein</i>"
+    ]
+    _anim(msg.chat.id, frames, delay=0.6)
+
+@bot.message_handler(commands=['contact'])
+def cmd_contact(msg):
+    frames = ["📞 <b>Loading Contact...</b>"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.5)
+    try:
+        bot.edit_message_text(
+            "📞 <b>CONTACT US</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "👑 <b>Owner:</b> @MR_DARK_OP\n"
+            "🛠️ <b>Support:</b> @rchiex\n"
+            "📢 <b>Updates:</b> @II_LEGEND_OTP_SELLER_UPDATES_II\n"
+            "🎉 <b>Events:</b> @Legendaryevent\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "<i>24/7 Support Available!</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except: pass
+
+@bot.message_handler(commands=['daily'])
+def cmd_daily(msg):
+    user_id = msg.from_user.id
+    frames = ["🎁 <b>Checking Daily Bonus...</b>", "🎁 <b>Loading reward...</b> ⏳"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.6)
+    try: bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.5)
+    try:
+        last = db['daily_bonus'].find_one({"user_id": user_id})
+        now = datetime.utcnow()
+        if last:
+            diff = now - last.get("last_claim", now - timedelta(days=2))
+            if diff.total_seconds() < 86400:
+                remaining = 86400 - diff.total_seconds()
+                h, rem = divmod(int(remaining), 3600)
+                mn = rem // 60
+                bot.edit_message_text(
+                    f"⏳ <b>Daily Bonus Already Claimed!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"🕐 Agli baar: <b>{h}h {mn}m</b> mein\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"<i>Kal wapas aana! 😊</i>",
+                    msg.chat.id, m.message_id, parse_mode="HTML"
+                )
+                return
+        # Give bonus
+        bonus = 2.0
+        add_balance(user_id, bonus)
+        db['daily_bonus'].update_one(
+            {"user_id": user_id},
+            {"$set": {"last_claim": now, "user_id": user_id}},
+            upsert=True
+        )
+        bot.edit_message_text(
+            f"🎁 <b>DAILY BONUS CLAIMED!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>+{format_currency(bonus)}</b> added to your wallet!\n"
+            f"💳 <b>New Balance:</b> {format_currency(get_balance(user_id))}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Kal bhi aana for more! 🎉</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Daily cmd error: {e}")
+
+@bot.message_handler(commands=['leaderboard'])
+def cmd_leaderboard(msg):
+    frames = ["🏆 <b>Loading Leaderboard...</b>", "🏆 <b>Ranking users...</b> ⏳"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.7)
+    try: bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.6)
+    try:
+        top = list(wallets_col.find().sort("balance", -1).limit(10))
+        medals = ["🥇","🥈","🥉","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"]
+        lines = ""
+        for i, w in enumerate(top):
+            uid = w.get("user_id", 0)
+            u = users_col.find_one({"user_id": uid}) or {}
+            name = u.get("name") or u.get("username") or f"User{uid}"
+            bal = w.get("balance", 0)
+            lines += f"{medals[i]} <b>{name[:15]}</b> — {format_currency(bal)}\n"
+        if not lines:
+            lines = "<i>Koi data nahi abhi.</i>"
+        bot.edit_message_text(
+            f"🏆 <b>TOP WALLETS LEADERBOARD</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{lines}"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Recharge karo aur top pe aao! 💪</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Leaderboard cmd error: {e}")
+
+@bot.message_handler(commands=['invite'])
+def cmd_invite(msg):
+    user_id = msg.from_user.id
+    bot_info = bot.get_me()
+    ref_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
+    frames = ["🔗 <b>Generating Invite Link...</b>"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.5)
+    try:
+        bot.edit_message_text(
+            f"🔗 <b>YOUR INVITE LINK</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<code>{ref_link}</code>\n\n"
+            f"💰 <b>Earn {REFERRAL_COMMISSION}%</b> commission on every recharge!\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Share karo aur kamao! 🎉</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML",
+            disable_web_page_preview=True
+        )
+    except: pass
+
+@bot.message_handler(commands=['wallet'])
+def cmd_wallet(msg):
+    user_id = msg.from_user.id
+    frames = ["💳 <b>Loading Wallet...</b>", "💳 <b>Fetching balance...</b> ⏳"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.6)
+    try: bot.edit_message_text(frames[1], msg.chat.id, m.message_id, parse_mode="HTML")
+    except: pass
+    time.sleep(0.5)
+    try:
+        bal = get_balance(user_id)
+        bot.edit_message_text(
+            f"💳 <b>MY WALLET</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>Balance:</b> {format_currency(bal)}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Recharge ke liye /recharge karo</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except: pass
+
+@bot.message_handler(commands=['menu'])
+def cmd_menu(msg):
+    user_id = msg.from_user.id
+    try:
+        bot.delete_message(msg.chat.id, msg.message_id)
+    except: pass
+    clean_ui_and_send_menu(msg.chat.id, user_id)
+
+@bot.message_handler(commands=['rank'])
+def cmd_rank(msg):
+    user_id = msg.from_user.id
+    frames = ["🎖️ <b>Checking Rank...</b>"]
+    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    time.sleep(0.6)
+    try:
+        bal = get_balance(user_id)
+        above = wallets_col.count_documents({"balance": {"$gt": bal}})
+        rank = above + 1
+        total = wallets_col.count_documents({})
+        percentile = int((1 - above / max(total, 1)) * 100)
+        bot.edit_message_text(
+            f"🎖️ <b>YOUR RANK</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏅 <b>Rank:</b> #{rank} out of {total}\n"
+            f"💰 <b>Balance:</b> {format_currency(bal)}\n"
+            f"📊 <b>Top:</b> {percentile}% users\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Recharge karo rank improve karo! 💪</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Rank cmd error: {e}")
+
+# ── ADMIN COMMANDS ─────────────────────────────────────────────────────
+
+@bot.message_handler(commands=['ban'])
+def cmd_ban(msg):
+    user_id = msg.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "⚠️ Usage: /ban <user_id> [reason]")
+        return
+    try:
+        target = int(args[1])
+        reason = " ".join(args[2:]) if len(args) > 2 else "Admin ban"
+        banned_users_col.update_one(
+            {"user_id": target},
+            {"$set": {"user_id": target, "status": "active", "reason": reason,
+                      "banned_by": user_id, "banned_at": datetime.utcnow()}},
+            upsert=True
+        )
+        bot.reply_to(msg, f"🚫 User <code>{target}</code> banned!\n📝 Reason: {reason}", parse_mode="HTML")
+        try:
+            bot.send_message(target, f"🚫 <b>You have been banned!</b>\n📝 Reason: {reason}", parse_mode="HTML")
+        except: pass
+    except (ValueError, IndexError):
+        bot.reply_to(msg, "❌ Invalid user ID!")
+
+@bot.message_handler(commands=['unban'])
+def cmd_unban(msg):
+    user_id = msg.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "⚠️ Usage: /unban <user_id>")
+        return
+    try:
+        target = int(args[1])
+        banned_users_col.update_one({"user_id": target}, {"$set": {"status": "inactive"}})
+        bot.reply_to(msg, f"✅ User <code>{target}</code> unbanned!", parse_mode="HTML")
+        try:
+            bot.send_message(target, "✅ <b>Aapka ban hata diya gaya hai!</b> Bot use kar sakte ho.", parse_mode="HTML")
+        except: pass
+    except (ValueError, IndexError):
+        bot.reply_to(msg, "❌ Invalid user ID!")
+
+@bot.message_handler(commands=['addbalance'])
+def cmd_addbalance(msg):
+    user_id = msg.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "⚠️ Usage: /addbalance <user_id> <amount>")
+        return
+    try:
+        target = int(args[1])
+        amount = float(args[2])
+        add_balance(target, amount)
+        new_bal = get_balance(target)
+        bot.reply_to(msg, f"✅ <code>{target}</code> ko <b>+{format_currency(amount)}</b> diya!\n💳 Naya balance: {format_currency(new_bal)}", parse_mode="HTML")
+        try:
+            bot.send_message(target, f"💰 <b>Balance Added!</b>\n+{format_currency(amount)} added by admin.\n💳 New Balance: {format_currency(new_bal)}", parse_mode="HTML")
+        except: pass
+    except (ValueError, IndexError):
+        bot.reply_to(msg, "❌ Invalid user ID or amount!")
+
+@bot.message_handler(commands=['userinfo'])
+def cmd_userinfo(msg):
+    user_id = msg.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    args = msg.text.split()
+    if len(args) < 2:
+        bot.reply_to(msg, "⚠️ Usage: /userinfo <user_id>")
+        return
+    try:
+        target = int(args[1])
+        u = users_col.find_one({"user_id": target}) or {}
+        bal = get_balance(target)
+        banned = is_user_banned(target)
+        purchases = db['orders'].count_documents({"user_id": target}) if 'orders' in db.list_collection_names() else 0
+        bot.reply_to(
+            msg,
+            f"👤 <b>USER INFO</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 ID: <code>{target}</code>\n"
+            f"📛 Name: {u.get('name','N/A')}\n"
+            f"👤 Username: @{u.get('username','N/A')}\n"
+            f"💰 Balance: {format_currency(bal)}\n"
+            f"🛒 Purchases: {purchases}\n"
+            f"🚫 Banned: {'Yes' if banned else 'No'}\n"
+            f"📅 Joined: {u.get('created_at', datetime.utcnow()).strftime('%d %b %Y') if u.get('created_at') else 'N/A'}",
+            parse_mode="HTML"
+        )
+    except (ValueError, IndexError):
+        bot.reply_to(msg, "❌ Invalid user ID!")
+
+@bot.message_handler(commands=['listcoupons'])
+def cmd_listcoupons(msg):
+    user_id = msg.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    try:
+        coupons = list(db['coupons'].find({"status": "active"}).limit(20))
+        if not coupons:
+            bot.reply_to(msg, "📋 Koi active coupon nahi hai.")
+            return
+        lines = "\n".join([
+            f"🎁 <code>{c.get('code','?')}</code> — ₹{c.get('amount',0)} | Used: {c.get('used_count',0)}/{c.get('max_uses','∞')}"
+            for c in coupons
+        ])
+        bot.reply_to(msg, f"🎟️ <b>ACTIVE COUPONS</b>\n━━━━━━━━━━━━━━━━━━━━━\n{lines}", parse_mode="HTML")
+    except Exception as e:
+        bot.reply_to(msg, f"❌ Error: {e}")
+
+@bot.message_handler(commands=['maintenance'])
+def cmd_maintenance(msg):
+    user_id = msg.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    try:
+        current = db['settings'].find_one({"key": "maintenance"})
+        new_status = not (current.get("value", False) if current else False)
+        db['settings'].update_one(
+            {"key": "maintenance"},
+            {"$set": {"key": "maintenance", "value": new_status, "set_by": user_id, "set_at": datetime.utcnow()}},
+            upsert=True
+        )
+        status_text = "🔴 ON" if new_status else "🟢 OFF"
+        bot.reply_to(msg, f"⚙️ <b>Maintenance Mode: {status_text}</b>", parse_mode="HTML")
+    except Exception as e:
+        bot.reply_to(msg, f"❌ Error: {e}")
+
+@bot.message_handler(commands=['broadcast'])
+def cmd_broadcast_shortcut(msg):
+    user_id = msg.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    bot.reply_to(msg, "📢 Broadcast ke liye /sendbroadcast use karo (reply karke kisi message ko)")
+
+@bot.message_handler(commands=['deduct'])
+def cmd_deduct(msg):
+    user_id = msg.from_user.id
+    if not is_admin(user_id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    args = msg.text.split()
+    if len(args) < 3:
+        bot.reply_to(msg, "⚠️ Usage: /deduct <user_id> <amount>")
+        return
+    try:
+        target = int(args[1])
+        amount = float(args[2])
+        cur_bal = get_balance(target)
+        if amount > cur_bal:
+            bot.reply_to(msg, f"❌ Insufficient balance! User has {format_currency(cur_bal)}")
+            return
+        deduct_balance(target, amount)
+        new_bal = get_balance(target)
+        bot.reply_to(msg, f"✅ <code>{target}</code> se <b>-{format_currency(amount)}</b> deduct kiya!\n💳 Naya balance: {format_currency(new_bal)}", parse_mode="HTML")
+        try:
+            bot.send_message(target, f"⚠️ <b>Balance Deducted!</b>\n-{format_currency(amount)} by admin.\n💳 New Balance: {format_currency(new_bal)}", parse_mode="HTML")
+        except: pass
+    except (ValueError, IndexError):
+        bot.reply_to(msg, "❌ Invalid user ID or amount!")
+
+@bot.message_handler(commands=['totalusers'])
+def cmd_totalusers(msg):
+    if not is_admin(msg.from_user.id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    count = users_col.count_documents({})
+    banned = banned_users_col.count_documents({"status": "active"})
+    bot.reply_to(msg, f"👥 <b>Total Users:</b> {count}\n🚫 <b>Banned:</b> {banned}", parse_mode="HTML")
+
+@bot.message_handler(commands=['totalaccounts'])
+def cmd_totalaccounts(msg):
+    if not is_admin(msg.from_user.id):
+        bot.reply_to(msg, "❌ Sirf admin use kar sakta hai!")
+        return
+    total = accounts_col.count_documents({"status": "active"})
+    used = accounts_col.count_documents({"used": True})
+    available = accounts_col.count_documents({"status": "active", "used": False})
+    bot.reply_to(msg,
+        f"📱 <b>ACCOUNT STATS</b>\n"
+        f"Total: {total}\nUsed: {used}\nAvailable: {available}",
+        parse_mode="HTML"
+    )
+
+# ---------------------------------------------------------------------
 # AI CHATBOT — ChatGPT integration with bot persona
 # ---------------------------------------------------------------------
 
