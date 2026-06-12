@@ -4,11 +4,16 @@ echo "🚀 Bot launcher started — auto-restart enabled"
 RESTART_DELAY=5
 CRASH_COUNT=0
 
-while true; do
-    # Aggressively free port 8080 before each start
+kill_port() {
+    pkill -f "python bot.py" 2>/dev/null || true
     fuser -k 8080/tcp 2>/dev/null || true
     kill $(lsof -t -i:8080 2>/dev/null) 2>/dev/null || true
-    sleep 2
+}
+
+while true; do
+    # Kill any leftover processes holding port 8080
+    kill_port
+    sleep 4   # Give OS time to fully release the socket
 
     echo "▶️  Starting bot.py... (restart #$CRASH_COUNT)"
     python bot.py
