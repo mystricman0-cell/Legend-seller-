@@ -408,6 +408,10 @@ RATE_LIMIT_WINDOW = 60         # per seconds
 HONEYPOT_COMMANDS = {
     "/admin", "/panel", "/root", "/hack", "/exploit", "/shell",
     "/exec", "/cmd", "/backdoor", "/bypass", "/getid", "/dbdump",
+    "/config", "/env", "/token", "/secret", "/dump", "/sql",
+    "/login", "/auth", "/pass", "/password", "/sudo", "/su",
+    "/system", "/run", "/eval", "/inject", "/scan", "/probe",
+    "/whoami", "/ls", "/pwd", "/cat", "/wget", "/curl",
 }
 
 def _is_rate_limited(user_id: int) -> bool:
@@ -542,6 +546,7 @@ fampay_auto_states = {}       # UTR/screenshot formality for FamPay Auto
 fampay_approved_orders = set() # Orders already credited (prevent double-credit)
 fampay_notified_orders = set() # Orders already sent final msg (prevent double-notify)
 fampay_cancelled_users = set() # Users who cancelled — stops poll thread
+ai_mode_users = set()  # Users with DRS X AI mode enabled
 admin_add_state = {}  # For /addadmin flow
 admin_remove_state = {}  # For /removeadmin flow
 
@@ -570,7 +575,7 @@ except ImportError as e:
 PERSONAL_LOG_CHANNEL_ID = PERSONAL_LOG_CHANNEL_ID_FIXED  # always -1003912691513
 
 # OpenAI / ChatGPT config
-OPENAI_API_KEY = _g('_AX1N') or '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'
+OPENAI_API_KEY = _g('OPENAI_API_KEY')
 
 try:
     from logs import (
