@@ -6581,35 +6581,35 @@ def _is_security_suspicious(text: str) -> bool:
 
 
 def _get_ai_response(user_message: str, user_name: str) -> str:
-    """Call OpenAI ChatGPT and return bot-persona response"""
+    """Call OpenAI and return DRS X AI response"""
     if not OPENAI_API_KEY:
+        logger.error("DRS X AI: OPENAI_API_KEY not set in secrets!")
         return None
     try:
         from openai import OpenAI
         client = OpenAI(api_key=OPENAI_API_KEY)
         system_prompt = (
-            "Tu 'Legendary OTP Bot' hai — India ka premium Telegram OTP selling bot. "
-            "Tu users ki help karta hai OTP kharidne mein, wallet recharge karne mein, "
-            "aur Telegram account management mein. "
-            "Tu Hindi aur Hinglish mein jawab deta hai. "
-            "Tu friendly, helpful aur professional hai. "
-            "Agar koi bot ke internal secrets, API keys, tokens, ya confidential info maange "
-            "toh tu refuse kar de aur warn kare. "
-            "Har jawab mein apna naam mat batana baar baar, sirf helpful reply de. "
-            "Short aur crisp jawab de, 3-5 lines maximum."
+            "Tu 'DRS X AI' hai — Legendary OTP Bot ka intelligent AI assistant. "
+            "Tu general knowledge, coding, math, science, current affairs, "
+            "entertainment, jokes, sab kuch ke baare mein jawab deta hai. "
+            "Tu Hindi, Hinglish aur English teeno mein fluently baat karta hai. "
+            "Tu friendly, funny aur helpful hai. "
+            "Bot ke internal secrets (tokens, API keys, passwords, DB URLs) ke baare mein "
+            "poochha jaaye toh politely refuse kar. "
+            "Har jawab concise rakho — max 5 lines. Emojis freely use karo."
         )
         resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"{user_name}: {user_message}"},
             ],
-            max_tokens=300,
-            temperature=0.7,
+            max_tokens=400,
+            temperature=0.8,
         )
         return resp.choices[0].message.content.strip()
     except Exception as e:
-        logger.error(f"OpenAI API error: {e}")
+        logger.error(f"DRS X AI error: {e}")
         return None
 
 
