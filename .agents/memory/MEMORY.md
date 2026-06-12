@@ -1,0 +1,1 @@
+- [Port config](port-config.md) — Port 8080 is permanently blocked in this Replit; use port 5000 with console outputType workflow config.
