@@ -1630,7 +1630,15 @@ def clean_ui_and_send_menu(chat_id, user_id, text=None, markup=None):
             markup.add(
                 InlineKeyboardButton("🛠️ Support", callback_data="support")
             )
-            # Row 5: 1 button (only for admin)
+            # Row 5: DRS X AI mode toggle
+            ai_on = user_id in ai_mode_users
+            markup.add(
+                InlineKeyboardButton(
+                    "🤖 DRS X AI ✅ ON" if ai_on else "🤖 DRS X AI",
+                    callback_data="toggle_ai_mode"
+                )
+            )
+            # Row 6: 1 button (only for admin)
             if is_admin(user_id):
                 markup.add(InlineKeyboardButton("👑 Admin Panel", callback_data="admin_panel"))
         
