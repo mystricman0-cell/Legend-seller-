@@ -2147,6 +2147,19 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             )
             user_last_message[user_id] = sent_msg.message_id
         
+        elif data == "toggle_ai_mode":
+            if user_id in ai_mode_users:
+                ai_mode_users.discard(user_id)
+                bot.answer_callback_query(call.id, "🤖 DRS X AI Mode OFF kar diya gaya!", show_alert=False)
+            else:
+                ai_mode_users.add(user_id)
+                bot.answer_callback_query(call.id, "🤖 DRS X AI Mode ON! Ab kuch bhi puchho!", show_alert=False)
+            try:
+                bot.delete_message(call.message.chat.id, call.message.message_id)
+            except:
+                pass
+            clean_ui_and_send_menu(call.message.chat.id, user_id)
+
         elif data == "admin_panel":
             if is_admin(user_id):
                 try:
