@@ -28,11 +28,12 @@ name = "Start application"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "console"
+outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "bash run.sh"
+waitForPort = 5000
 
 [[workflows.workflow]]
 name = "GitHub Auto-Sync"
@@ -47,8 +48,4 @@ outputType = "console"
 
 [[ports]]
 localPort = 5000
-externalPort = 5000
-
-[[ports]]
-localPort = 8080
 externalPort = 80
