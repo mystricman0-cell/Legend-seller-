@@ -7777,20 +7777,18 @@ if __name__ == "__main__":
                 time.sleep(15)
 
     logger.info(f"🚀 Starting Flask webhook server on port {WEBHOOK_PORT}...")
-    from werkzeug.serving import BaseWSGIServer, WSGIRequestHandler
+    import socket as _sock
+    import socketserver as _ss
 
-    class _ReuseServer(BaseWSGIServer):
-        allow_reuse_address = True  # Set SO_REUSEADDR BEFORE bind
+    # Force SO_REUSEADDR so port is freed immediately on restart
+    _ss.TCPServer.allow_reuse_address = True
 
     try:
-        _srv = _ReuseServer("0.0.0.0", WEBHOOK_PORT, flask_app,
-                            request_handler=WSGIRequestHandler)
-        _srv.serve_forever()
+        flask_app.run(host="0.0.0.0", port=WEBHOOK_PORT, debug=False,
+                      use_reloader=False, threaded=True)
     except OSError:
-        # Last resort: force-kill port and retry once
         import os as _os
-        _os.system(f"fuser -k {WEBHOOK_PORT}/tcp 2>/dev/null; sleep 2")
-        _srv = _ReuseServer("0.0.0.0", WEBHOOK_PORT, flask_app,
-                            request_handler=WSGIRequestHandler)
-        _srv.serve_forever()
+        _os.system(f"fuser -k {WEBHOOK_PORT}/tcp 2>/dev/null || true; sleep 2")
+        flask_app.run(host="0.0.0.0", port=WEBHOOK_PORT, debug=False,
+                      use_reloader=False, threaded=True)
 
