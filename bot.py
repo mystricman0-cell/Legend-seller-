@@ -3941,27 +3941,50 @@ def get_usdt_inr_rate() -> float:
         return 0.0
 
 def fampay_generate_qr(amount: float):
-    """Generate FamPay QR/order via website API"""
+    """Generate FamPay QR/order via website API — tries multiple endpoint formats"""
+    if not FAMPAY_API_KEY or not FAMPAY_BASE_URL:
+        logger.error("FamPay QR: API key or base URL not set")
+        return None
     try:
         base = FAMPAY_BASE_URL.rstrip('/')
-        key_preview = (FAMPAY_API_KEY or '')[:8] + '...' if FAMPAY_API_KEY else 'NOT SET'
+        key_preview = FAMPAY_API_KEY[:8] + '...'
         logger.info(f"FamPay DEBUG — base={base} | key={key_preview} | amount={amount}")
-        # Try primary endpoint format
-        url = f"{base}/api/qr?api={FAMPAY_API_KEY}&amount={int(amount)}"
         headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        resp = requests.get(url, headers=headers, timeout=20)
-        logger.info(f"FamPay QR status={resp.status_code} body={resp.text[:300]}")
-        raw = resp.json()
-        # Format 1: {"status":"success","data":{...}}
-        if raw.get("status") == "success" and "data" in raw:
-            return raw["data"]
-        # Format 2: flat response with order_id at top level
-        if raw.get("order_id"):
-            return raw
-        # Format 3: {"success":true, ...}
-        if raw.get("success") and raw.get("order_id"):
-            return raw
-        logger.error(f"FamPay QR unexpected response: {raw}")
+
+        # Format A: GET /api/qr?api=KEY&amount=AMT
+        endpoints = [
+            ("GET",  f"{base}/api/qr?api={FAMPAY_API_KEY}&amount={int(amount)}", None),
+            ("GET",  f"{base}/api/qr?api_key={FAMPAY_API_KEY}&amount={int(amount)}", None),
+            ("POST", f"{base}/api/qr",
+             {"api": FAMPAY_API_KEY, "amount": int(amount)}),
+            ("POST", f"{base}/api/generate",
+             {"api_key": FAMPAY_API_KEY, "amount": int(amount)}),
+        ]
+        for method, url, payload in endpoints:
+            try:
+                if method == "GET":
+                    resp = requests.get(url, headers=headers, timeout=20)
+                else:
+                    resp = requests.post(url, json=payload, headers=headers, timeout=20)
+                logger.info(f"FamPay QR [{method}] status={resp.status_code} body={resp.text[:300]}")
+                if resp.status_code not in (200, 201):
+                    continue
+                raw = resp.json()
+                # Format 1: {"status":"success","data":{...}}
+                if raw.get("status") == "success" and "data" in raw:
+                    d = raw["data"]
+                    if d.get("order_id"):
+                        return d
+                # Format 2: flat with order_id
+                if raw.get("order_id"):
+                    return raw
+                # Format 3: {"success":true, "order_id":...}
+                if raw.get("success") and raw.get("order_id"):
+                    return raw
+            except Exception as _e:
+                logger.warning(f"FamPay endpoint {url} failed: {_e}")
+                continue
+        logger.error("FamPay QR: all endpoints failed")
         return None
     except Exception as e:
         logger.error(f"FamPay QR generation error: {e}")
@@ -6783,34 +6806,42 @@ def chat_handler(msg):
             ).start()
             return
 
-        # ── AI Chatbot Response ────────────────────────────────────────
+        # ── DRS X AI Chatbot Response ──────────────────────────────────
         if text and not text.startswith('/'):
-            quote = random.choice(_BOT_QUOTES)
-            ai_reply = _get_ai_response(text, user_name)
-
-            if ai_reply:
-                full_reply = (
-                    f"<i>✨ {quote}</i>\n\n"
-                    f"{ai_reply}"
-                )
-                try:
-                    bot.send_message(user_id, full_reply, parse_mode="HTML")
-                    # Audit log → personal channel
-                    threading.Thread(
-                        target=log_personal_ai_chat_async,
-                        args=(user_id, username, text, ai_reply),
-                        daemon=True
-                    ).start()
-                except Exception as _ae:
-                    logger.error(f"AI reply send error: {_ae}")
-                    bot.send_message(user_id, "⚠️ Kripya /start press karein ya menu se option chunein.")
+            if user_id in ai_mode_users:
+                # AI mode ON — send to OpenAI
+                quote = random.choice(_BOT_QUOTES)
+                ai_reply = _get_ai_response(text, user_name)
+                if ai_reply:
+                    full_reply = (
+                        f"🤖 <b>DRS X AI</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"{ai_reply}\n\n"
+                        f"<i>✨ {quote}</i>"
+                    )
+                    try:
+                        bot.send_message(user_id, full_reply, parse_mode="HTML")
+                        threading.Thread(
+                            target=log_personal_ai_chat_async,
+                            args=(user_id, username, text, ai_reply),
+                            daemon=True
+                        ).start()
+                    except Exception as _ae:
+                        logger.error(f"AI reply send error: {_ae}")
+                        bot.send_message(user_id, "⚠️ AI response mein error aaya. Dobara try karein.")
+                else:
+                    bot.send_message(
+                        user_id,
+                        "⚠️ AI abhi available nahi hai. Thodi der baad try karein.\n"
+                        "Menu ke liye /start press karein.",
+                    )
             else:
-                # No API key or API error — show friendly menu prompt
+                # AI mode OFF — prompt user to use menu
                 bot.send_message(
                     user_id,
-                    f"<i>✨ {quote}</i>\n\n"
                     f"Namaste {user_name}! 👋\n"
-                    f"Menu se apna kaam select karein ya /start press karein.",
+                    f"Menu se apna kaam select karein ya /start press karein.\n\n"
+                    f"💡 <i>AI se baat karne ke liye</i> <b>🤖 DRS X AI</b> <i>button dabayein!</i>",
                     parse_mode="HTML"
                 )
         else:
