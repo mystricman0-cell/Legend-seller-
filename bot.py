@@ -7777,5 +7777,9 @@ if __name__ == "__main__":
                 time.sleep(15)
 
     logger.info(f"🚀 Starting Flask webhook server on port {WEBHOOK_PORT}...")
-    flask_app.run(host="0.0.0.0", port=WEBHOOK_PORT, debug=False)
+    import socket as _sock
+    from werkzeug.serving import make_server
+    _srv = make_server("0.0.0.0", WEBHOOK_PORT, flask_app)
+    _srv.socket.setsockopt(_sock.SOL_SOCKET, _sock.SO_REUSEADDR, 1)
+    _srv.serve_forever()
 
