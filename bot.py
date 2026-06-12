@@ -6492,38 +6492,57 @@ def cmd_cleanmongo(message):
 
 @bot.message_handler(commands=['cancel'])
 def cancel_command(msg):
-    """Clear ALL pending states and return to main menu"""
+    """Clear ALL pending states and return to main menu with animation"""
     user_id = msg.from_user.id
     chat_id = msg.chat.id
 
-    # Stop FamPay background poll thread
+    # ── Animation frames ──────────────────────────────────────────────
+    frames = [
+        "⏳ <b>Cancelling...</b>",
+        "🔄 <b>Clearing all pending tasks...</b>",
+        "🗑️ <b>Removing active sessions...</b>",
+        "✅ <b>All tasks cancelled!</b>\n\n↩️ Returning to main menu...",
+    ]
+    _anim(chat_id, frames, delay=0.55)
+
+    # ── Stop FamPay background poll thread ───────────────────────────
     fampay_cancelled_users.add(user_id)
 
-    # Clear ALL state dicts
-    upi_payment_states.pop(user_id, None)
-    fampay_auto_states.pop(user_id, None)
-    recharge_method_state.pop(user_id, None)
+    # ── Cancel any pending DB recharge requests ───────────────────────
+    try:
+        recharges_col.update_many(
+            {"user_id": user_id, "status": "pending"},
+            {"$set": {"status": "cancelled_by_user"}}
+        )
+    except Exception:
+        pass
+
+    # ── Clear ALL in-memory state dicts ──────────────────────────────
+    for _d in (
+        upi_payment_states, fampay_auto_states, recharge_method_state,
+        login_states, edit_price_state, coupon_state, admin_deduct_state,
+        cancellation_trackers, admin_add_state, admin_remove_state,
+        broadcast_data, user_states, pending_messages, active_chats,
+        user_last_message, user_orders, order_messages, order_timers,
+        change_number_requests, whatsapp_number_timers, payment_orders,
+        referral_data, bulk_add_states, recharge_approvals,
+    ):
+        try:
+            _d.pop(user_id, None)
+        except Exception:
+            pass
+
+    # user_stage uses both user_id AND chat_id as keys
     user_stage.pop(user_id, None)
     user_stage.pop(chat_id, None)
-    login_states.pop(user_id, None)
-    edit_price_state.pop(user_id, None)
-    coupon_state.pop(user_id, None)
-    admin_deduct_state.pop(user_id, None)
-    cancellation_trackers.pop(user_id, None)
-    admin_add_state.pop(user_id, None)
-    admin_remove_state.pop(user_id, None)
-    broadcast_data.pop(user_id, None)
 
-    # Clear telebot next-step handlers
+    # ── Clear telebot next-step handlers ─────────────────────────────
     try:
         bot.clear_step_handler_by_chat_id(chat_id)
-    except: pass
+    except Exception:
+        pass
 
-    bot.send_message(
-        chat_id,
-        "❌ <b>Cancelled.</b>\n\nReturning to main menu...",
-        parse_mode="HTML"
-    )
+    # ── Back to main menu ─────────────────────────────────────────────
     clean_ui_and_send_menu(chat_id, user_id)
 
 @bot.message_handler(commands=['restart'])
