@@ -398,24 +398,63 @@ def _heartbeat_loop():
 
 threading.Thread(target=_heartbeat_loop, daemon=True).start()
 
-# ─── Security: Rate Limiter + Honeypot ────────────────────────────────────────
-_rate_tracker: dict = {}       # {user_id: [timestamps]}
-_honeypot_strikes: dict = {}   # {user_id: strike_count}
-_blocked_users: set = set()    # temporary in-memory block
+# ─── Security: Rate Limiter + Honeypot + Best Protection ──────────────────────
+import re as _re
+import hashlib as _hashlib_sec
 
-RATE_LIMIT_COUNT = 15          # max messages
-RATE_LIMIT_WINDOW = 60         # per seconds
+_rate_tracker: dict = {}        # {user_id: [timestamps]}
+_honeypot_strikes: dict = {}    # {user_id: strike_count}
+_blocked_users: dict = {}       # {user_id: unblock_time (0=permanent)}
+_cmd_flood_tracker: dict = {}   # {user_id: [timestamps]} for command spam
+_probe_log: dict = {}           # {user_id: [texts]} recent suspicious texts
+
+RATE_LIMIT_COUNT = 12
+RATE_LIMIT_WINDOW = 60
+TEMP_BLOCK_DURATION = 600       # 10 min temp ban
+PERM_BLOCK_THRESHOLD = 5        # strikes before permanent ban
+
+# ── Honeypot: fake commands that real users never type ─────────────────────────
 HONEYPOT_COMMANDS = {
     "/admin", "/panel", "/root", "/hack", "/exploit", "/shell",
-    "/exec", "/cmd", "/backdoor", "/bypass", "/getid", "/dbdump",
-    "/config", "/env", "/token", "/secret", "/dump", "/sql",
-    "/login", "/auth", "/pass", "/password", "/sudo", "/su",
-    "/system", "/run", "/eval", "/inject", "/scan", "/probe",
-    "/whoami", "/ls", "/pwd", "/cat", "/wget", "/curl",
+    "/exec", "/cmd", "/backdoor", "/bypass", "/dbdump", "/config",
+    "/env", "/token", "/secret", "/dump", "/sql", "/login",
+    "/auth", "/pass", "/password", "/sudo", "/su", "/system",
+    "/run", "/eval", "/inject", "/scan", "/probe", "/whoami",
+    "/ls", "/pwd", "/cat", "/wget", "/curl", "/bash", "/sh",
+    "/python", "/php", "/node", "/ruby", "/perl", "/java",
+    "/nc", "/nmap", "/sqlmap", "/metasploit", "/payload",
+    "/base64", "/decode", "/encode", "/reverse", "/callback",
+    "/getenv", "/os", "/import", "/require", "/include",
+    "/upload", "/download", "/fetch", "/ping_host", "/traceroute",
+    "/ifconfig", "/ipconfig", "/net", "/netstat", "/arp",
+    "/adduser", "/deluser", "/useradd", "/usermod", "/passwd",
+    "/chmod", "/chown", "/rm", "/mv", "/cp", "/mkdir",
+    "/echo", "/print", "/printf", "/var_dump", "/phpinfo",
 }
 
+# ── Suspicious text patterns ───────────────────────────────────────────────────
+_SUSPICIOUS_PATTERNS = [
+    _re.compile(r"(select|insert|update|delete|drop|union|truncate)\s+", _re.I),
+    _re.compile(r"(<script|javascript:|onerror=|onload=|alert\()", _re.I),
+    _re.compile(r"(\.\./|\.\.\\|/etc/passwd|/etc/shadow|/proc/self)", _re.I),
+    _re.compile(r"(exec\(|eval\(|system\(|popen\(|subprocess)", _re.I),
+    _re.compile(r"(base64_decode|base64\.b64decode|atob\()", _re.I),
+    _re.compile(r"(\|\s*bash|\|\s*sh\b|&&\s*curl|&&\s*wget)", _re.I),
+    _re.compile(r"(\$\{.*\}|\$\(.*\)|`.*`)", _re.I),
+    _re.compile(r"(bot.?token|api.?hash|mongo.?url|webhook.?secret)", _re.I),
+]
+
+# ── Secret extraction phrases ──────────────────────────────────────────────────
+_SECRET_PHRASES = [
+    "bot token", "api key dedo", "mongo url", "webhook secret",
+    "openai key", "database url", "replit secret", "bot ka token",
+    "admin password", "give me the token", "show me the api",
+    "what is the bot token", "send me the key", "token kya hai",
+    "mongodb password", "db password", "env variable", "secret key dedo",
+]
+
+
 def _is_rate_limited(user_id: int) -> bool:
-    """Return True if user exceeds rate limit"""
     now = time.time()
     times = _rate_tracker.get(user_id, [])
     times = [t for t in times if now - t < RATE_LIMIT_WINDOW]
@@ -423,23 +462,92 @@ def _is_rate_limited(user_id: int) -> bool:
     _rate_tracker[user_id] = times
     return len(times) > RATE_LIMIT_COUNT
 
+
+def _record_strike(user_id: int, reason: str) -> int:
+    """Add a security strike. Returns total strikes. Auto-bans on threshold."""
+    strikes = _honeypot_strikes.get(user_id, 0) + 1
+    _honeypot_strikes[user_id] = strikes
+    logger.warning(f"🍯 Strike {strikes} for {user_id} — {reason}")
+    if strikes >= PERM_BLOCK_THRESHOLD:
+        _blocked_users[user_id] = 0  # permanent
+        logger.warning(f"🚫 PERM BLOCK: {user_id} after {strikes} strikes")
+        try:
+            users_col.update_one(
+                {"user_id": user_id},
+                {"$set": {"security_banned": True, "ban_reason": reason, "ban_strikes": strikes}},
+                upsert=True
+            )
+        except Exception:
+            pass
+    elif strikes >= 2:
+        _blocked_users[user_id] = time.time() + TEMP_BLOCK_DURATION
+        logger.warning(f"⏱️ TEMP BLOCK (10min): {user_id}")
+    return strikes
+
+
 def _check_honeypot(user_id: int, text: str) -> bool:
-    """Return True if honeypot triggered (should block)"""
+    """Return True if any security trap triggered."""
     if not text:
         return False
-    lower = text.strip().lower().split()[0] if text.strip() else ""
-    if lower in HONEYPOT_COMMANDS:
-        strikes = _honeypot_strikes.get(user_id, 0) + 1
-        _honeypot_strikes[user_id] = strikes
-        logger.warning(f"🍯 Honeypot triggered by {user_id}: '{text}' (strikes={strikes})")
-        if strikes >= 3:
-            _blocked_users.add(user_id)
-            logger.warning(f"🚫 User {user_id} auto-blocked after {strikes} honeypot strikes")
+    stripped = text.strip()
+    lower = stripped.lower()
+    first_word = lower.split()[0] if lower.split() else ""
+
+    # 1. Fake command trap
+    if first_word in HONEYPOT_COMMANDS:
+        _record_strike(user_id, f"honeypot cmd: {first_word}")
         return True
+
+    # 2. Suspicious injection patterns
+    for pat in _SUSPICIOUS_PATTERNS:
+        if pat.search(stripped):
+            _record_strike(user_id, f"injection pattern: {pat.pattern[:40]}")
+            return True
+
+    # 3. Secret extraction attempt
+    for phrase in _SECRET_PHRASES:
+        if phrase in lower:
+            _record_strike(user_id, f"secret probe: {phrase}")
+            return True
+
+    # 4. Abnormally long single-word messages (encoded payloads)
+    if len(stripped) > 500 and ' ' not in stripped[:200]:
+        _record_strike(user_id, "encoded payload (long no-space string)")
+        return True
+
+    # 5. Repeated identical spam
+    log = _probe_log.get(user_id, [])
+    log = log[-10:]
+    if log.count(lower) >= 4:
+        _record_strike(user_id, "repeated identical message spam")
+        return True
+    log.append(lower)
+    _probe_log[user_id] = log
+
     return False
 
+
 def _is_security_blocked(user_id: int) -> bool:
-    return user_id in _blocked_users
+    if user_id not in _blocked_users:
+        return False
+    unblock_at = _blocked_users[user_id]
+    if unblock_at == 0:
+        return True  # permanent
+    if time.time() < unblock_at:
+        return True  # still temp blocked
+    del _blocked_users[user_id]  # expired
+    return False
+
+
+def _is_secret_probe(text: str) -> bool:
+    """Standalone check for secret extraction in private chat handler."""
+    if not text:
+        return False
+    lower = text.lower().strip()
+    for phrase in _SECRET_PHRASES:
+        if phrase in lower:
+            return True
+    return False
 
 # ─── Premium Start Animation ──────────────────────────────────────────────────
 
@@ -546,13 +654,6 @@ fampay_auto_states = {}       # UTR/screenshot formality for FamPay Auto
 fampay_approved_orders = set() # Orders already credited (prevent double-credit)
 fampay_notified_orders = set() # Orders already sent final msg (prevent double-notify)
 fampay_cancelled_users = set() # Users who cancelled — stops poll thread
-ai_mode_users = set()  # Users with DRS X AI mode enabled
-try:
-    ai_mode_users = set(
-        doc["user_id"] for doc in users_col.find({"ai_mode": True}, {"user_id": 1})
-    )
-except Exception:
-    pass  # MongoDB not ready yet; will reload later
 admin_add_state = {}  # For /addadmin flow
 admin_remove_state = {}  # For /removeadmin flow
 
@@ -579,9 +680,6 @@ except ImportError as e:
 
 # Import logging module
 PERSONAL_LOG_CHANNEL_ID = PERSONAL_LOG_CHANNEL_ID_FIXED  # always -1003912691513
-
-# OpenAI / ChatGPT config
-OPENAI_API_KEY = _g('OPENAI_API_KEY')
 
 try:
     from logs import (
@@ -1636,15 +1734,7 @@ def clean_ui_and_send_menu(chat_id, user_id, text=None, markup=None):
             markup.add(
                 InlineKeyboardButton("🛠️ Support", callback_data="support")
             )
-            # Row 5: DRS X AI mode toggle
-            ai_on = user_id in ai_mode_users
-            markup.add(
-                InlineKeyboardButton(
-                    "🤖 DRS X AI ✅ ON" if ai_on else "🤖 DRS X AI",
-                    callback_data="toggle_ai_mode"
-                )
-            )
-            # Row 6: 1 button (only for admin)
+            # Row 5: 1 button (only for admin)
             if is_admin(user_id):
                 markup.add(InlineKeyboardButton("👑 Admin Panel", callback_data="admin_panel"))
         
@@ -2154,23 +2244,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             user_last_message[user_id] = sent_msg.message_id
         
         elif data == "toggle_ai_mode":
-            if user_id in ai_mode_users:
-                ai_mode_users.discard(user_id)
-                try:
-                    users_col.update_one({"user_id": user_id}, {"$set": {"ai_mode": False}}, upsert=True)
-                except Exception: pass
-                bot.answer_callback_query(call.id, "🤖 DRS X AI Mode OFF kar diya gaya!", show_alert=False)
-            else:
-                ai_mode_users.add(user_id)
-                try:
-                    users_col.update_one({"user_id": user_id}, {"$set": {"ai_mode": True}}, upsert=True)
-                except Exception: pass
-                bot.answer_callback_query(call.id, "🤖 DRS X AI Mode ON! Ab kuch bhi puchho!", show_alert=False)
-            try:
-                bot.delete_message(call.message.chat.id, call.message.message_id)
-            except:
-                pass
-            clean_ui_and_send_menu(call.message.chat.id, user_id)
+            bot.answer_callback_query(call.id, "⚠️ Feature removed.", show_alert=False)
 
         elif data == "admin_panel":
             if is_admin(user_id):
@@ -4055,20 +4129,62 @@ def fp_check_status(order_id: str):
     """
     Poll payment status. Returns "success" / "pending" / "expired" / "error".
     Tries multiple endpoint paths with both 'api' and 'api_key' variants.
+
+    BUG FIX: The outer `status` field is the API call status ("success"/"error"),
+    NOT the payment status. Payment status lives inside `data.payment_status`,
+    `data.transaction_status`, or `data.status`.
+    We must NOT confuse the two.
     """
-    paths = ["/api/verify", "/api/status", "/api/check"]
+    # Words that mean "payment done"
+    _PAID = {"success", "paid", "completed", "credited", "done",
+             "approved", "settled", "confirmed"}
+    # Words that mean "still waiting"
+    _WAITING = {"pending", "processing", "initiated", "created",
+                "waiting", "inprogress", "in_progress", "unpaid"}
+    # Words that mean "failed / gone"
+    _DEAD = {"expired", "failed", "cancelled", "canceled",
+             "rejected", "refunded", "timeout", "timed_out"}
+
+    paths = ["/api/verify", "/api/status", "/api/check",
+             "/api/payment/status", "/api/order/status"]
+
     for path in paths:
         raw = _fp_api_request("GET", path, extra_params={"order_id": order_id})
-        if not raw:
+        if not isinstance(raw, dict):
             continue
-        # Unwrap nested data if present
-        data = raw.get("data", raw) if isinstance(raw, dict) else raw
-        status = (data.get("status") or raw.get("status") or "").lower()
-        if status in ("success", "pending", "expired"):
-            logger.info(f"FamPay status [{path}]: {status}")
-            return status
-    logger.warning(f"FamPay: no valid status for order {order_id}")
-    return "error"
+
+        # Unwrap nested "data" block if present
+        inner = raw.get("data") if isinstance(raw.get("data"), dict) else None
+
+        # Collect all candidate status strings — prefer inner block fields
+        candidates = []
+        if inner:
+            for field in ("payment_status", "transaction_status",
+                          "txn_status", "status", "state"):
+                v = inner.get(field)
+                if v and isinstance(v, str):
+                    candidates.append(v.strip().lower())
+        # Also check top-level fields (but skip if it's just the API wrapper "success")
+        # Only include top-level status if inner block was absent
+        if not inner:
+            for field in ("payment_status", "transaction_status",
+                          "txn_status", "status", "state"):
+                v = raw.get(field)
+                if v and isinstance(v, str):
+                    candidates.append(v.strip().lower())
+
+        logger.info(f"FamPay status [{path}] order={order_id} candidates={candidates}")
+
+        for c in candidates:
+            if c in _PAID:
+                return "success"
+            if c in _DEAD:
+                return "expired"
+            if c in _WAITING:
+                return "pending"
+
+    logger.warning(f"FamPay: no valid payment status for order {order_id}")
+    return "pending"   # default: keep polling rather than giving up early
 
 
 def fp_credit_wallet(chat_id: int, user_id: int, order_id: str, amount: float):
@@ -4282,13 +4398,34 @@ def process_fampay_auto_amount(msg):
         parse_mode="HTML"
     )
 
-    # Save state
+    # Save state in memory
     fampay_auto_states[user_id] = {
         "step": "polling",
         "amount": amount,
         "order_id": order_id,
         "chat_id": msg.chat.id,
     }
+
+    # ── BUG FIX: Save order to MongoDB IMMEDIATELY ──────────────────
+    # Webhook handler does recharges_col.find_one({"order_id":...})
+    # If not in DB, webhook misses user and credit never happens.
+    try:
+        recharges_col.update_one(
+            {"order_id": order_id},
+            {"$setOnInsert": {
+                "order_id": order_id,
+                "user_id": user_id,
+                "chat_id": msg.chat.id,
+                "amount": amount,
+                "method": "UPI Auto",
+                "status": "pending",
+                "created_at": datetime.utcnow(),
+            }},
+            upsert=True
+        )
+        logger.info(f"FamPay order saved to DB: {order_id} | user={user_id} | amount={amount}")
+    except Exception as db_err:
+        logger.error(f"FamPay DB pre-save error: {db_err}")
 
     # Start background polling thread
     threading.Thread(
@@ -6580,7 +6717,6 @@ def cmd_help(msg):
             "💳 /recharge — Paisa add karo\n"
             "👥 /refer — Referral link lo\n"
             "🎁 /redeem — Coupon lagao\n"
-            "🤖 /ai — DRS X AI toggle\n"
             "👤 /profile — Apna profile\n"
             "📋 /history — Transactions\n"
             "🌍 /countries — Available countries\n"
@@ -6883,33 +7019,6 @@ def cmd_time(msg):
             msg.chat.id, m.message_id, parse_mode="HTML"
         )
     except: pass
-
-@bot.message_handler(commands=['ai'])
-def cmd_ai_toggle(msg):
-    user_id = msg.from_user.id
-    if user_id in ai_mode_users:
-        ai_mode_users.discard(user_id)
-        try:
-            users_col.update_one({"user_id": user_id}, {"$set": {"ai_mode": False}}, upsert=True)
-        except Exception: pass
-        status = "🔴 <b>OFF</b>"
-        tip = "Ab normal bot mode mein ho.\nMenu se kaam karo ya dobara /ai likho ON karne ke liye."
-    else:
-        ai_mode_users.add(user_id)
-        try:
-            users_col.update_one({"user_id": user_id}, {"$set": {"ai_mode": True}}, upsert=True)
-        except Exception: pass
-        status = "🟢 <b>ON</b>"
-        tip = "Ab kuch bhi puchho — AI jawab dega!\nGeneral knowledge, coding, jokes — sab kuch!"
-    frames = [
-        "🤖 <b>DRS X AI Toggling...</b>",
-        f"🤖 <b>DRS X AI — {status}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"{tip}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<i>Menu ke liye /start press karein</i>"
-    ]
-    _anim(msg.chat.id, frames, delay=0.6)
 
 @bot.message_handler(commands=['contact'])
 def cmd_contact(msg):
@@ -7280,143 +7389,6 @@ def cmd_totalaccounts(msg):
         parse_mode="HTML"
     )
 
-# ---------------------------------------------------------------------
-# ═══════════════════════════════════════════════════════════════════════
-# DRS X AI — ChatGPT powered assistant
-# /ai command se toggle hota hai
-# User kuch bhi puche — jawab deta hai (personal cheezein chhodke)
-# ═══════════════════════════════════════════════════════════════════════
-
-_BOT_QUOTES = [
-    "🌟 Legendary OTP Bot — Sabse Tez, Sabse Bharosemand!",
-    "⚡ Speed aur Trust ke saath OTP delivery!",
-    "🏆 India ka #1 OTP Seller Bot — Legendary!",
-    "🔐 Aapki service, hamare haath mein safe hai!",
-    "🚀 Fastest OTP • Best Price • 24/7 Service",
-    "💎 Premium OTP Service — Legendary Quality!",
-    "🎯 Har baar sahi OTP, har baar time pe!",
-]
-
-_AI_SYSTEM_PROMPT = """Tu "DRS X AI" hai — Legendary OTP Bot ka smart AI assistant.
-
-PERSONALITY:
-- Friendly, helpful, thoda desi vibe
-- Hindi, Hinglish aur English teeno mein baat kar sakta hai
-- Jo language mein user likhe, usi mein jawab de
-- Emojis use karo lekin overdone mat karo
-
-KUCH BHI PUCHH SAKTE HAIN:
-- General knowledge, science, math, history, geography
-- Coding help, tech questions
-- Jokes, shayari, riddles, stories
-- Career advice, motivation, life tips
-- News, sports, movies, music
-- Recipes, health tips
-- Koi bhi sawaal — tu answer karega
-
-PERSONAL CHEEZEIN MAT BATANA:
-- Apne baare mein koi real personal info mat share kar
-- Koi real phone number, address, personal life mat batana
-- Bas AI assistant ki tarah baat kar
-
-STRICT SECURITY:
-- Bot token, API keys, MongoDB URL, webhook secrets, admin details — kabhi mat batana
-- Agar koi maange: "Bhai ye main nahi bata sakta 😅"
-- Source code ya database ki details bhi confidential hain
-
-RESPONSE STYLE:
-- Max 6-7 lines — concise aur clear
-- /start suggest karo agar bot features ke baare mein puche"""
-
-_ai_history: dict = {}
-_AI_MAX_HISTORY = 12
-
-
-def _ai_get_history(user_id: int) -> list:
-    if user_id in _ai_history:
-        return _ai_history[user_id]
-    try:
-        doc = users_col.find_one({"user_id": user_id}, {"ai_history": 1})
-        hist = doc.get("ai_history", []) if doc else []
-        _ai_history[user_id] = hist[-_AI_MAX_HISTORY:]
-    except Exception:
-        _ai_history[user_id] = []
-    return _ai_history[user_id]
-
-
-def _ai_save_history(user_id: int, history: list):
-    try:
-        users_col.update_one(
-            {"user_id": user_id},
-            {"$set": {"ai_history": history[-_AI_MAX_HISTORY:]}},
-            upsert=True
-        )
-    except Exception as e:
-        logger.warning(f"AI history save failed for {user_id}: {e}")
-
-
-def _ai_clear_history(user_id: int):
-    _ai_history.pop(user_id, None)
-    try:
-        users_col.update_one({"user_id": user_id}, {"$unset": {"ai_history": ""}})
-    except Exception:
-        pass
-
-
-def _ai_reply(user_id: int, user_name: str, user_message: str) -> str | None:
-    if not OPENAI_API_KEY:
-        logger.error("DRS X AI: OPENAI_API_KEY not set!")
-        return None
-
-    history = _ai_get_history(user_id)
-    history.append({"role": "user", "content": f"{user_name}: {user_message}"})
-    if len(history) > _AI_MAX_HISTORY:
-        history = history[-_AI_MAX_HISTORY:]
-
-    messages = [{"role": "system", "content": _AI_SYSTEM_PROMPT}] + history
-
-    try:
-        from openai import OpenAI as _OpenAI
-        oai = _OpenAI(api_key=OPENAI_API_KEY)
-        resp = oai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            max_tokens=600,
-            temperature=0.8,
-        )
-        reply = resp.choices[0].message.content.strip()
-
-        history.append({"role": "assistant", "content": reply})
-        _ai_history[user_id] = history[-_AI_MAX_HISTORY:]
-        threading.Thread(
-            target=_ai_save_history,
-            args=(user_id, _ai_history[user_id]),
-            daemon=True
-        ).start()
-        return reply
-
-    except Exception as e:
-        logger.error(f"DRS X AI error for user {user_id}: {e}")
-        if history and history[-1]["role"] == "user":
-            history.pop()
-        _ai_history[user_id] = history
-        return None
-
-
-def _ai_is_secret_probe(text: str) -> bool:
-    if not text:
-        return False
-    t = text.lower().strip()
-    secret_words = [
-        "bot token", "api key dedo", "mongo url", "webhook secret dedo",
-        "openai key dedo", "database url dedo", "replit secret dedo",
-        "bot ka token dedo", "admin password dedo", "give me the token",
-        "show me the api key", "what is the bot token"
-    ]
-    for phrase in secret_words:
-        if phrase in t:
-            return True
-    return False
 
 
 # ---------------------------------------------------------------------
@@ -7580,7 +7552,7 @@ def chat_handler(msg):
         username = msg.from_user.username or ""
 
         # ── Security probe check ────────────────────────────────────────
-        if _ai_is_secret_probe(text):
+        if _is_secret_probe(text):
             bot.send_message(
                 user_id,
                 "🚨 <b>SECURITY WARNING!</b>\n\n"
@@ -7605,54 +7577,14 @@ def chat_handler(msg):
             ).start()
             return
 
-        # ── DRS X AI — new system ──────────────────────────────────────
+        # ── Unknown text — redirect to menu ────────────────────────────
         if text and not text.startswith('/'):
-            if user_id in ai_mode_users:
-                # Show typing action
-                try:
-                    bot.send_chat_action(user_id, "typing")
-                except Exception:
-                    pass
-
-                ai_reply = _ai_reply(user_id, user_name, text)
-
-                if ai_reply:
-                    quote = random.choice(_BOT_QUOTES)
-                    full_reply = (
-                        f"🤖 <b>DRS X AI</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"{ai_reply}\n\n"
-                        f"<i>✨ {quote}</i>"
-                    )
-                    try:
-                        bot.send_message(user_id, full_reply, parse_mode="HTML")
-                    except Exception as _ae:
-                        logger.error(f"AI reply send error: {_ae}")
-                        try:
-                            bot.send_message(user_id, ai_reply)
-                        except Exception:
-                            pass
-                    # Log async
-                    threading.Thread(
-                        target=log_personal_ai_chat_async,
-                        args=(user_id, username, text, ai_reply),
-                        daemon=True
-                    ).start()
-                else:
-                    bot.send_message(
-                        user_id,
-                        "⚠️ AI abhi available nahi hai. Thodi der baad try karein.\n"
-                        "Menu ke liye /start press karein.",
-                    )
-            else:
-                # AI mode OFF
-                bot.send_message(
-                    user_id,
-                    f"Namaste {user_name}! 👋\n"
-                    f"Menu se apna kaam select karein ya /start press karein.\n\n"
-                    f"💡 <i>AI se baat karne ke liye</i> <b>🤖 DRS X AI</b> <i>button dabayein!</i>",
-                    parse_mode="HTML"
-                )
+            bot.send_message(
+                user_id,
+                f"Namaste {user_name}! 👋\n"
+                f"Menu se apna kaam select karein ya /start press karein.",
+                parse_mode="HTML"
+            )
         else:
             bot.send_message(user_id, "⚠️ /start press karein ya menu se option chunein.")
 
@@ -7762,7 +7694,6 @@ if __name__ == "__main__":
             BotCommand("ping",           "🏓 Bot ping test"),
             BotCommand("id",             "🆔 Apna Telegram ID dekhein"),
             BotCommand("time",           "🕐 Server time dekhein"),
-            BotCommand("ai",             "🤖 DRS X AI mode toggle karo"),
             BotCommand("faq",            "❓ Common sawaalon ke jawab"),
             BotCommand("rules",          "📜 Bot rules padhein"),
             BotCommand("contact",        "📞 Owner/support contact"),

@@ -5,6 +5,10 @@ if [ -z "$GITHUB_TOKEN" ]; then
     exit 1
 fi
 
+# Remove stale git lock files left by Replit's own git agent
+rm -f .git/index.lock .git/config.lock .git/HEAD.lock \
+       .git/refs/heads/main.lock .git/packed-refs.lock 2>/dev/null
+
 git config --global user.email "bot@legendaryotp.replit"
 git config --global user.name "Legendary OTP Bot"
 git config --global credential.helper ""
