@@ -2489,7 +2489,102 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             )
             recharge_method_state[user_id] = "fampay_auto"
             bot.register_next_step_handler(call.message, process_fampay_auto_amount)
-        
+
+        elif data.startswith("fp_icheck_"):
+            # ── Instant payment check — user pressed "Maine Pay Kar Diya" ──────
+            cb_order_id = data[len("fp_icheck_"):]   # partial order_id (first 30 chars)
+
+            # Resolve full order_id + amount + chat_id from memory or DB
+            order_id = None
+            amount   = 0
+            chat_id  = call.message.chat.id
+
+            # 1. Check in-memory state
+            st = fampay_auto_states.get(user_id)
+            if st and st.get("order_id", "").startswith(cb_order_id):
+                order_id = st["order_id"]
+                amount   = st["amount"]
+                chat_id  = st["chat_id"]
+
+            # 2. Fallback to MongoDB
+            if not order_id:
+                try:
+                    rec = recharges_col.find_one(
+                        {"user_id": user_id, "status": "pending", "method": "UPI Auto"},
+                        sort=[("created_at", -1)]
+                    )
+                    if rec and rec.get("order_id", "").startswith(cb_order_id):
+                        order_id = rec["order_id"]
+                        amount   = rec.get("amount", 0)
+                        chat_id  = rec.get("chat_id", call.message.chat.id)
+                except Exception:
+                    pass
+
+            if not order_id:
+                bot.answer_callback_query(
+                    call.id,
+                    "⚠️ Order nahi mila. Shayad expire ho gaya ya already credited hai.",
+                    show_alert=True
+                )
+                return
+
+            # Already credited?
+            if order_id in fampay_approved_orders:
+                bot.answer_callback_query(call.id, "✅ Already credit ho chuka hai!", show_alert=True)
+                return
+
+            bot.answer_callback_query(call.id, "🔍 FamPay se check ho raha hai...", show_alert=False)
+
+            # ── Run instant check in background so callback doesn't timeout ──
+            def _instant_check_job():
+                status = fp_check_status(order_id)
+                logger.info(f"fp_icheck callback: order={order_id} status={status} user={user_id}")
+
+                if status == "success":
+                    fp_credit_wallet(chat_id, user_id, order_id, amount)
+
+                elif status == "expired":
+                    if order_id not in fampay_notified_orders:
+                        fampay_notified_orders.add(order_id)
+                        retry_mu = InlineKeyboardMarkup(row_width=1)
+                        retry_mu.add(
+                            InlineKeyboardButton("🔄 Naya Payment Karo", callback_data="recharge_fampay_auto"),
+                            InlineKeyboardButton("📞 Admin Se Contact Karo", url="https://t.me/ID_GMS_SELLER_bot"),
+                        )
+                        try:
+                            bot.send_message(
+                                chat_id,
+                                f"❌ <b>Order Expire Ho Gaya</b>\n\n"
+                                f"🆔 <code>{order_id}</code>\n"
+                                f"💰 ₹{int(amount)}\n\n"
+                                f"Agar aapne pay kiya tha toh admin se order ID share karein.",
+                                parse_mode="HTML",
+                                reply_markup=retry_mu
+                            )
+                        except Exception:
+                            pass
+
+                else:  # pending
+                    retry_mu = InlineKeyboardMarkup(row_width=1)
+                    retry_mu.add(
+                        InlineKeyboardButton("🔄 Dobara Check Karo", callback_data=f"fp_icheck_{order_id[:30]}"),
+                    )
+                    try:
+                        bot.send_message(
+                            chat_id,
+                            f"⏳ <b>Payment Abhi Nahi Mili</b>\n\n"
+                            f"🆔 <code>{order_id}</code>\n\n"
+                            f"Pay karne ke <b>1-2 minute baad</b> dobara check karein.\n"
+                            f"Bot khud bhi automatically check karta rehta hai.\n\n"
+                            f"<i>Ya /checkpayment {order_id} command use karein.</i>",
+                            parse_mode="HTML",
+                            reply_markup=retry_mu
+                        )
+                    except Exception:
+                        pass
+
+            threading.Thread(target=_instant_check_job, daemon=True).start()
+
         elif data == "recharge_crypto":
             if not CRYPTO_USDT_ADDRESS:
                 bot.answer_callback_query(call.id, "⚠️ Crypto payment not configured yet. Contact admin.", show_alert=True)
