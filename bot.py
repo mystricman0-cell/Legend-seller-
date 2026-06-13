@@ -4347,6 +4347,9 @@ def process_fampay_auto_amount(msg):
     order_id = order["order_id"]
     qr_url = order.get("qr_url", "")
 
+    # Truncate order_id for callback_data (max 64 chars total)
+    cb_order = order_id[:30]
+
     caption = (
         f"⚡ <b>UPI Auto Pay</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n"
@@ -4355,25 +4358,39 @@ def process_fampay_auto_amount(msg):
         f"📋 <b>Steps:</b>\n"
         f"1️⃣ Neeche QR scan karein kisi bhi UPI app se\n"
         f"2️⃣ Exactly ₹{int(amount)} pay karein\n"
-        f"3️⃣ Payment karte hi wallet auto-credit ho jayega ✅\n\n"
+        f"3️⃣ Pay karne ke baad <b>✅ Maine Pay Kar Diya</b> dabayein\n\n"
         f"⏰ <i>QR 5 minute mein expire ho jayega</i>"
+    )
+
+    qr_markup = InlineKeyboardMarkup(row_width=1)
+    qr_markup.add(
+        InlineKeyboardButton("✅ Maine Pay Kar Diya — Check Karo!", callback_data=f"fp_icheck_{cb_order}"),
+        InlineKeyboardButton("❌ Cancel", callback_data="back_to_menu"),
     )
 
     if qr_url:
         try:
-            bot.send_photo(msg.chat.id, qr_url, caption=caption, parse_mode="HTML")
+            bot.send_photo(msg.chat.id, qr_url, caption=caption,
+                           parse_mode="HTML", reply_markup=qr_markup)
         except Exception:
-            bot.send_message(msg.chat.id, caption + f"\n\n🔗 QR Link: {qr_url}", parse_mode="HTML")
+            bot.send_message(msg.chat.id,
+                             caption + f"\n\n🔗 QR Link: {qr_url}",
+                             parse_mode="HTML", reply_markup=qr_markup)
     else:
-        bot.send_message(msg.chat.id, caption, parse_mode="HTML")
+        bot.send_message(msg.chat.id, caption, parse_mode="HTML", reply_markup=qr_markup)
 
-    # Waiting message
+    # Waiting message with manual check button
+    wait_markup = InlineKeyboardMarkup(row_width=1)
+    wait_markup.add(
+        InlineKeyboardButton("🔄 Manually Check Karo", callback_data=f"fp_icheck_{cb_order}"),
+    )
     bot.send_message(
         msg.chat.id,
         "⏳ <b>Payment ka wait kar raha hoon...</b>\n\n"
-        "Pay karte hi yahan automatically confirmation aayega.\n"
-        "<i>Kuch galat lage toh /cancel karein.</i>",
-        parse_mode="HTML"
+        "✅ Pay karne ke baad upar wala button dabayein\n"
+        "<i>Ya bot khud bhi har 4 second mein check karta rahega.</i>",
+        parse_mode="HTML",
+        reply_markup=wait_markup
     )
 
     # Save state in memory
