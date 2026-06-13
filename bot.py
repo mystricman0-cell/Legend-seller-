@@ -7698,14 +7698,18 @@ def telegram_webhook():
 def health():
     return "GMS Bot is running via webhook ✅", 200
 
-@flask_app.route("/fampay/webhook", methods=["POST"])
+@flask_app.route("/fampay/webhook", methods=["GET", "POST"])
 def fampay_payment_webhook():
     """FamPay server-push webhook — instant payment confirmation"""
+    if flask_request.method == "GET":
+        return "✅ FamPay Webhook Active | POST only", 200
     return _fp_webhook_handler()
 
 # Also accept old path for backwards compatibility
-@flask_app.route("/webhook/payment", methods=["POST"])
+@flask_app.route("/webhook/payment", methods=["GET", "POST"])
 def fampay_payment_webhook_legacy():
+    if flask_request.method == "GET":
+        return "✅ FamPay Webhook Active | POST only", 200
     return _fp_webhook_handler()
 
 # ---------------------------------------------------------------------
