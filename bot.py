@@ -7128,20 +7128,51 @@ def cmd_time(msg):
 
 @bot.message_handler(commands=['contact'])
 def cmd_contact(msg):
-    frames = ["📞 <b>Loading Contact...</b>"]
-    m = bot.send_message(msg.chat.id, frames[0], parse_mode="HTML")
+    m = bot.send_message(msg.chat.id, "📞 <b>Loading Contact...</b>", parse_mode="HTML")
     time.sleep(0.5)
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("📡 ᴜᴘᴅᴀᴛᴇꜱ Channel", url="https://t.me/Drdupdates"),
+        InlineKeyboardButton("🛠️ ꜱᴜᴘᴘᴏʀᴛ Channel", url="https://t.me/rchiex"),
+        InlineKeyboardButton("👑 Owner", url="https://t.me/MR_DARK_OP"),
+    )
     try:
         bot.edit_message_text(
             "📞 <b>CONTACT US</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━\n"
             "👑 <b>Owner:</b> @MR_DARK_OP\n"
             "🛠️ <b>Support:</b> @rchiex\n"
-            "📢 <b>Updates:</b> @II_LEGEND_OTP_SELLER_UPDATES_II\n"
-            "🎉 <b>Events:</b> @Legendaryevent\n"
+            "📡 <b>Updates:</b> @Drdupdates\n"
             "━━━━━━━━━━━━━━━━━━━━━\n"
             "<i>24/7 Support Available!</i>",
-            msg.chat.id, m.message_id, parse_mode="HTML"
+            msg.chat.id, m.message_id, parse_mode="HTML",
+            reply_markup=markup
+        )
+    except: pass
+
+@bot.message_handler(commands=['support'])
+def cmd_support(msg):
+    m = bot.send_message(msg.chat.id, "🛠️ <b>Loading Support...</b>", parse_mode="HTML")
+    time.sleep(0.4)
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        InlineKeyboardButton("🛠️ ꜱᴜᴘᴘᴏʀᴛ Channel — @rchiex", url="https://t.me/rchiex"),
+        InlineKeyboardButton("👑 Owner — @MR_DARK_OP", url="https://t.me/MR_DARK_OP"),
+        InlineKeyboardButton("📡 Updates — @Drdupdates", url="https://t.me/Drdupdates"),
+    )
+    try:
+        bot.edit_message_text(
+            "🛠️ <b>SUPPORT CENTER</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "👋 <b>Need help? Hum yahan hain!</b>\n\n"
+            "🛠️ <b>Support:</b> @rchiex\n"
+            "👑 <b>Owner:</b> @MR_DARK_OP\n"
+            "📡 <b>Updates:</b> @Drdupdates\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━\n"
+            "⏰ <i>Response time: 5–30 minutes</i>\n"
+            "🕐 <i>Available: 9 AM – 11 PM IST</i>",
+            msg.chat.id, m.message_id, parse_mode="HTML",
+            reply_markup=markup
         )
     except: pass
 
@@ -7255,10 +7286,20 @@ def cmd_wallet(msg):
     time.sleep(0.5)
     try:
         bal = get_balance(user_id)
+        usdt_rate = get_usdt_inr_rate()
+        if usdt_rate > 0:
+            usdt_val  = bal / usdt_rate
+            usdt_line = f"💎 <b>USDT Value:</b> ≈ {usdt_val:.4f} USDT\n"
+            rate_line = f"📈 <b>Live Rate:</b> 1 USDT = ₹{usdt_rate:.2f}\n"
+        else:
+            usdt_line = ""
+            rate_line = ""
         bot.edit_message_text(
             f"💳 <b>MY WALLET</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
             f"💰 <b>Balance:</b> {format_currency(bal)}\n"
+            f"{usdt_line}"
+            f"{rate_line}"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
             f"<i>Recharge ke liye /recharge karo</i>",
             msg.chat.id, m.message_id, parse_mode="HTML"
