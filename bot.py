@@ -2572,21 +2572,35 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                         except Exception:
                             pass
 
-                else:  # pending
-                    retry_mu = InlineKeyboardMarkup(row_width=1)
-                    retry_mu.add(
-                        InlineKeyboardButton("🔄 Dobara Check Karo", callback_data=f"fp_icheck_{order_id[:30]}"),
+                else:  # pending → cancel the request
+                    # Mark as notified so background poll stops too
+                    fampay_notified_orders.add(order_id)
+                    fampay_auto_states.pop(user_id, None)
+                    # Update DB status to cancelled
+                    try:
+                        recharges_col.update_one(
+                            {"order_id": order_id},
+                            {"$set": {"status": "cancelled", "cancel_reason": "payment_not_received_on_manual_check"}}
+                        )
+                    except Exception:
+                        pass
+                    cancel_mu = InlineKeyboardMarkup(row_width=1)
+                    cancel_mu.add(
+                        InlineKeyboardButton("🔄 Naya Payment Karo", callback_data="recharge_fampay_auto"),
+                        InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"),
+                        InlineKeyboardButton("📞 Support", url="https://t.me/rchiex"),
                     )
                     try:
                         bot.send_message(
                             chat_id,
-                            f"⏳ <b>Payment Abhi Nahi Mili</b>\n\n"
-                            f"🆔 <code>{order_id}</code>\n\n"
-                            f"Pay karne ke <b>1-2 minute baad</b> dobara check karein.\n"
-                            f"Bot khud bhi automatically check karta rehta hai.\n\n"
-                            f"<i>Ya /checkpayment {order_id} command use karein.</i>",
+                            f"❌ <b>Request Cancel Ho Gayi</b>\n\n"
+                            f"🆔 <code>{order_id}</code>\n"
+                            f"💰 ₹{int(amount)}\n\n"
+                            f"Bot ne check kiya — <b>payment nahi mili abhi tak.</b>\n"
+                            f"Isliye deposit request cancel kar di gayi.\n\n"
+                            f"<i>Agar aapne actually pay kiya hai toh screenshot ke saath support pe contact karein.</i>",
                             parse_mode="HTML",
-                            reply_markup=retry_mu
+                            reply_markup=cancel_mu
                         )
                     except Exception:
                         pass
@@ -7435,15 +7449,32 @@ def cmd_checkpayment(msg):
             reply_markup=markup
         )
     else:
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("🔄 Check Again", callback_data="check_again_" + order_id[:20]))
+        # Pending → cancel the request
+        fampay_notified_orders.add(order_id)
+        fampay_auto_states.pop(user_id, None)
+        try:
+            recharges_col.update_one(
+                {"order_id": order_id},
+                {"$set": {"status": "cancelled", "cancel_reason": "payment_not_received_on_checkpayment"}}
+            )
+        except Exception:
+            pass
+        cancel_mu = InlineKeyboardMarkup(row_width=1)
+        cancel_mu.add(
+            InlineKeyboardButton("🔄 Naya Payment Karo", callback_data="recharge_fampay_auto"),
+            InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"),
+            InlineKeyboardButton("📞 Support", url="https://t.me/rchiex"),
+        )
         bot.send_message(
             msg.chat.id,
-            f"⏳ <b>Payment Abhi Pending Hai</b>\n\n"
-            f"🆔 <code>{order_id}</code>\n\n"
-            f"Pay karne ke baad thodi der mein automatic credit ho jayega.\n"
-            f"Ya 2-3 min baad dobara /checkpayment karein.",
-            parse_mode="HTML"
+            f"❌ <b>Request Cancel Ho Gayi</b>\n\n"
+            f"🆔 <code>{order_id}</code>\n"
+            f"💰 {format_currency(amount)}\n\n"
+            f"Bot ne check kiya — <b>payment nahi mili abhi tak.</b>\n"
+            f"Isliye deposit request cancel kar di gayi.\n\n"
+            f"<i>Agar aapne actually pay kiya hai toh screenshot ke saath support pe contact karein.</i>",
+            parse_mode="HTML",
+            reply_markup=cancel_mu
         )
 
 
