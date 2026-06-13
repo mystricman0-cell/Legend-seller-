@@ -7677,6 +7677,7 @@ if __name__ == "__main__":
             BotCommand("contact",        "📞 Owner/support contact"),
             BotCommand("support",        "🛠️ Admin se madad lo"),
             BotCommand("cancel",         "❌ Sab kuch cancel karo"),
+            BotCommand("checkpayment",   "🔍 UPI payment status check karo"),
         ]
         admin_cmds = user_cmds + [
             BotCommand("stats",            "📊 Full bot statistics"),
