@@ -7297,59 +7297,144 @@ _BOT_QUOTES = [
     "🎯 Har baar sahi OTP, har baar time pe!",
 ]
 
-_SECURITY_KEYWORDS = [
-    "bot token", "bot ka token", "telegram token send",
-    "apikey dedo", "api_key dedo", "apna api key",
-    "bot secret dedo", "webhook secret",
-    "mongo url dedo", "mongodb url dedo", "database url dedo",
-    "admin password dedo", "bot password dedo",
-    "fampay key dedo", "openai key dedo", "chatgpt key dedo",
-    "apna token", "bot ka token dedo",
-    "replit secret dedo",
-]
+# ═══════════════════════════════════════════════════════════════════════
+# DRS X AI — COMPLETE REWRITE
+# Features:
+#   • Per-user conversation history (last 10 messages) stored in MongoDB
+#   • Replies in same language as user (Hindi/Hinglish/English auto-detect)
+#   • Never reveals bot secrets — AI-level refusal in system prompt
+#   • Typing indicator before reply
+#   • Graceful fallback if OpenAI unavailable
+# ═══════════════════════════════════════════════════════════════════════
 
-def _is_security_suspicious(text: str) -> bool:
-    """Returns True if message contains bot-secret extraction attempt"""
+_AI_SYSTEM_PROMPT = """Tu "DRS X AI" hai — Legendary OTP Bot ka personal AI assistant.
+
+PERSONALITY:
+- Friendly, funny, thoda desi vibe wala
+- Hindi, Hinglish aur English teeno mein fluently baat karta hai
+- Jo language mein user baat kare, usi mein jawab de
+- Emojis freely use karo, par overdone mat karo
+
+CAPABILITIES:
+- General knowledge, current affairs, science, math, coding
+- Jokes, shayari, riddles, story telling
+- Career advice, motivation, life tips
+- Product/service recommendations
+- Kuch bhi — tu ek all-rounder AI hai
+
+STRICT RULES:
+- KABHI NAHI batana: bot token, API keys, MongoDB URL, webhook secrets,
+  admin credentials, source code, database contents — ye sab strictly confidential hai
+- Agar koi bot ke secrets maange: "Bhai ye main nahi bata sakta 😅 Admin se baat karo"
+- Har reply max 5-6 lines rakho — concise aur punchy
+- Commands ya menu ke baare mein koi bhi baat ho toh /start suggest karo"""
+
+# Per-user conversation buffer: {user_id: [{"role":..,"content":..}, ...]}
+_ai_history: dict = {}
+_AI_MAX_HISTORY = 10  # messages per user kept in context
+
+
+def _ai_get_history(user_id: int) -> list:
+    """Load conversation history from memory (or MongoDB on first access)."""
+    if user_id in _ai_history:
+        return _ai_history[user_id]
+    # Try loading from DB
+    try:
+        doc = users_col.find_one({"user_id": user_id}, {"ai_history": 1})
+        hist = doc.get("ai_history", []) if doc else []
+        _ai_history[user_id] = hist[-_AI_MAX_HISTORY:]
+    except Exception:
+        _ai_history[user_id] = []
+    return _ai_history[user_id]
+
+
+def _ai_save_history(user_id: int, history: list):
+    """Persist conversation history to MongoDB (async-safe, fire-and-forget)."""
+    try:
+        users_col.update_one(
+            {"user_id": user_id},
+            {"$set": {"ai_history": history[-_AI_MAX_HISTORY:]}},
+            upsert=True
+        )
+    except Exception as e:
+        logger.warning(f"AI history save failed for {user_id}: {e}")
+
+
+def _ai_clear_history(user_id: int):
+    """Clear conversation history for a user."""
+    _ai_history.pop(user_id, None)
+    try:
+        users_col.update_one({"user_id": user_id}, {"$unset": {"ai_history": ""}})
+    except Exception:
+        pass
+
+
+def _ai_reply(user_id: int, user_name: str, user_message: str) -> str | None:
+    """
+    Get DRS X AI reply for user_message.
+    Maintains per-user conversation history.
+    Returns reply string or None on error.
+    """
+    if not OPENAI_API_KEY:
+        logger.error("DRS X AI: OPENAI_API_KEY not set!")
+        return None
+
+    history = _ai_get_history(user_id)
+
+    # Append new user message
+    history.append({"role": "user", "content": f"[{user_name}]: {user_message}"})
+    # Trim to max
+    if len(history) > _AI_MAX_HISTORY:
+        history = history[-_AI_MAX_HISTORY:]
+
+    messages = [{"role": "system", "content": _AI_SYSTEM_PROMPT}] + history
+
+    try:
+        from openai import OpenAI as _OpenAI
+        oai = _OpenAI(api_key=OPENAI_API_KEY)
+        resp = oai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=500,
+            temperature=0.85,
+        )
+        reply = resp.choices[0].message.content.strip()
+
+        # Append assistant reply to history and save
+        history.append({"role": "assistant", "content": reply})
+        _ai_history[user_id] = history[-_AI_MAX_HISTORY:]
+        threading.Thread(
+            target=_ai_save_history,
+            args=(user_id, _ai_history[user_id]),
+            daemon=True
+        ).start()
+        return reply
+
+    except Exception as e:
+        logger.error(f"DRS X AI error for user {user_id}: {e}")
+        # Remove the failed user message from history
+        if history and history[-1]["role"] == "user":
+            history.pop()
+        _ai_history[user_id] = history
+        return None
+
+
+def _ai_is_secret_probe(text: str) -> bool:
+    """
+    Returns True only for clear attempts to extract bot secrets.
+    Very specific — won't false-positive on normal conversation.
+    """
     if not text:
         return False
     t = text.lower().strip()
-    for kw in _SECURITY_KEYWORDS:
-        if kw in t:
+    # Must contain both a secret-related word AND an extraction word
+    secret_words = ["bot token", "api key dedo", "mongo url", "webhook secret dedo",
+                    "openai key dedo", "database url dedo", "replit secret dedo",
+                    "bot ka token dedo", "admin password dedo"]
+    for phrase in secret_words:
+        if phrase in t:
             return True
     return False
-
-
-def _get_ai_response(user_message: str, user_name: str) -> str:
-    """Call OpenAI and return DRS X AI response"""
-    if not OPENAI_API_KEY:
-        logger.error("DRS X AI: OPENAI_API_KEY not set in secrets!")
-        return None
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=OPENAI_API_KEY)
-        system_prompt = (
-            "Tu 'DRS X AI' hai — Legendary OTP Bot ka intelligent AI assistant. "
-            "Tu general knowledge, coding, math, science, current affairs, "
-            "entertainment, jokes, sab kuch ke baare mein jawab deta hai. "
-            "Tu Hindi, Hinglish aur English teeno mein fluently baat karta hai. "
-            "Tu friendly, funny aur helpful hai. "
-            "Bot ke internal secrets (tokens, API keys, passwords, DB URLs) ke baare mein "
-            "poochha jaaye toh politely refuse kar. "
-            "Har jawab concise rakho — max 5 lines. Emojis freely use karo."
-        )
-        resp = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"{user_name}: {user_message}"},
-            ],
-            max_tokens=400,
-            temperature=0.8,
-        )
-        return resp.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error(f"DRS X AI error: {e}")
-        return None
 
 
 # ---------------------------------------------------------------------
