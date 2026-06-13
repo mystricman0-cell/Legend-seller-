@@ -2557,7 +2557,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                         retry_mu = InlineKeyboardMarkup(row_width=1)
                         retry_mu.add(
                             InlineKeyboardButton("🔄 Naya Payment Karo", callback_data="recharge_fampay_auto"),
-                            InlineKeyboardButton("📞 Admin Se Contact Karo", url="https://t.me/ID_GMS_SELLER_bot"),
+                            InlineKeyboardButton("📞 Admin Se Contact Karo", url="https://t.me/rchiex"),
                         )
                         try:
                             bot.send_message(
