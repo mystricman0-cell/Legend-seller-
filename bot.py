@@ -4515,24 +4515,20 @@ def handle_screenshot_input(msg):
 
 def _fp_webhook_handler():
     """Flask route handler for FamPay webhook push."""
-    import hmac, hashlib
+    import hmac as _hmac, hashlib as _hashlib
     try:
         raw_body = flask_request.get_data(as_text=True)
         # Verify webhook signature if secret set
         if FAMPAY_WEBHOOK_SECRET:
             sig = flask_request.headers.get("X-Webhook-Signature", "")
-            expected = hmac.new(
-                FAMPAY_WEBHOOK_SECRET.encode(),
-                raw_body.encode() if isinstance(raw_body, str) else raw_body,
-                hashlib.sha256
-            ).hexdigest() if hasattr(hmac, 'new') else hmac.HMAC(
-                FAMPAY_WEBHOOK_SECRET.encode(),
-                raw_body.encode() if isinstance(raw_body, str) else raw_body,
-                hashlib.sha256
-            ).hexdigest()
-            if sig and sig != expected:
-                logger.warning("FamPay webhook: invalid signature — ignoring")
-                return "INVALID", 403
+            if sig:
+                body_bytes = raw_body.encode() if isinstance(raw_body, str) else raw_body
+                expected = _hmac.new(
+                    FAMPAY_WEBHOOK_SECRET.encode(), body_bytes, _hashlib.sha256
+                ).hexdigest()
+                if sig != expected:
+                    logger.warning("FamPay webhook: invalid signature — ignoring")
+                    return "INVALID", 403
 
         data = flask_request.get_json(silent=True) or {}
         order_id = data.get("order_id") or data.get("orderId", "")
