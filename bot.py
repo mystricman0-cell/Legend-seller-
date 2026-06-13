@@ -2463,7 +2463,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             edit_or_resend(
                 call.message.chat.id,
                 call.message.message_id,
-                "💳 Enter recharge amount for UPI (minimum ₹1):",
+                "💳 Enter recharge amount for UPI (minimum ₹5):",
                 markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton("❌ Cancel", callback_data="back_to_menu")
                 )
@@ -2475,7 +2475,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             edit_or_resend(
                 call.message.chat.id,
                 call.message.message_id,
-                "💜 Enter recharge amount for FamPay (minimum ₹1):",
+                "💜 Enter recharge amount for FamPay (minimum ₹5):",
                 markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton("❌ Cancel", callback_data="back_to_menu")
                 )
@@ -2489,7 +2489,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             edit_or_resend(
                 call.message.chat.id,
                 call.message.message_id,
-                "⚡ <b>UPI Auto (QR)</b>\n\nEnter recharge amount (minimum ₹1):",
+                "⚡ <b>UPI Auto (QR)</b>\n\nEnter recharge amount (minimum ₹5):",
                 markup=InlineKeyboardMarkup().add(
                     InlineKeyboardButton("❌ Cancel", callback_data="back_to_menu")
                 ),
@@ -4408,8 +4408,8 @@ def process_fampay_auto_amount(msg):
         bot.register_next_step_handler(msg, process_fampay_auto_amount)
         return
 
-    if amount < 1:
-        bot.send_message(msg.chat.id, "❌ Minimum recharge ₹1 hai. Dobara enter karein:")
+    if amount < 5:
+        bot.send_message(msg.chat.id, "❌ Minimum recharge ₹5 hai. Dobara enter karein:")
         bot.register_next_step_handler(msg, process_fampay_auto_amount)
         return
 
@@ -4547,8 +4547,8 @@ def process_fampay_auto_amount(msg):
 def process_recharge_amount(msg):
     try:
         amount = float(msg.text)
-        if amount < 1:
-            bot.send_message(msg.chat.id, "❌ Minimum recharge is ₹1. Enter amount again:")
+        if amount < 5:
+            bot.send_message(msg.chat.id, "❌ Minimum recharge ₹5 hai. Dobara enter karein:")
             bot.register_next_step_handler(msg, process_recharge_amount)
             return
         
