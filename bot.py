@@ -7137,6 +7137,135 @@ def cmd_wallet(msg):
         )
     except: pass
 
+@bot.message_handler(commands=['checkpayment'])
+def cmd_checkpayment(msg):
+    """
+    /checkpayment <order_id>
+    User manually triggers payment status check. If paid → instant credit.
+    Useful when auto-poll missed or bot restarted.
+    """
+    user_id = msg.from_user.id
+    parts = msg.text.strip().split(maxsplit=1)
+
+    if len(parts) < 2 or not parts[1].strip():
+        # No order_id given — check if user has a recent pending order in DB or memory
+        pending = None
+        # Check in-memory state first
+        if user_id in fampay_auto_states:
+            st = fampay_auto_states[user_id]
+            pending = {"order_id": st["order_id"], "amount": st["amount"],
+                       "chat_id": st["chat_id"]}
+        else:
+            # Check MongoDB for latest pending order
+            try:
+                rec = recharges_col.find_one(
+                    {"user_id": user_id, "status": "pending", "method": "UPI Auto"},
+                    sort=[("created_at", -1)]
+                )
+                if rec:
+                    pending = {"order_id": rec["order_id"], "amount": rec["amount"],
+                               "chat_id": rec.get("chat_id", user_id)}
+            except Exception:
+                pass
+
+        if not pending:
+            bot.send_message(
+                msg.chat.id,
+                "🔍 <b>Payment Check</b>\n\n"
+                "Order ID provide karein:\n"
+                "<code>/checkpayment ORDER_ID</code>\n\n"
+                "Order ID aapko QR message mein mila tha.\n"
+                "<i>Example: /checkpayment FAMPAY1234567890</i>",
+                parse_mode="HTML"
+            )
+            return
+        order_id = pending["order_id"]
+        amount   = pending["amount"]
+        chat_id  = pending["chat_id"]
+    else:
+        order_id = parts[1].strip()
+        # Look up amount from DB or memory
+        amount  = 0
+        chat_id = msg.chat.id
+        if user_id in fampay_auto_states and \
+                fampay_auto_states[user_id].get("order_id") == order_id:
+            amount  = fampay_auto_states[user_id]["amount"]
+            chat_id = fampay_auto_states[user_id]["chat_id"]
+        else:
+            try:
+                rec = recharges_col.find_one({"order_id": order_id})
+                if rec:
+                    # Security: only allow owner or admin
+                    if rec.get("user_id") != user_id and user_id != ADMIN_ID:
+                        bot.send_message(msg.chat.id,
+                                         "❌ Ye order aapka nahi hai.",
+                                         parse_mode="HTML")
+                        return
+                    amount  = rec.get("amount", 0)
+                    chat_id = rec.get("chat_id", msg.chat.id)
+                    user_id = rec.get("user_id", user_id)  # credit to order owner
+            except Exception:
+                pass
+
+    # Already credited?
+    if order_id in fampay_approved_orders:
+        bot.send_message(msg.chat.id,
+                         f"✅ Order <code>{order_id}</code> pehle se credit ho chuka hai!",
+                         parse_mode="HTML")
+        return
+
+    # Inform user we're checking
+    wait_msg = bot.send_message(
+        msg.chat.id,
+        f"🔍 <b>Payment Check Ho Raha Hai...</b>\n"
+        f"🆔 <code>{order_id}</code>",
+        parse_mode="HTML"
+    )
+
+    status = fp_check_status(order_id)
+
+    try:
+        bot.delete_message(msg.chat.id, wait_msg.message_id)
+    except Exception:
+        pass
+
+    if status == "success":
+        if amount > 0:
+            fp_credit_wallet(chat_id, user_id, order_id, amount)
+        else:
+            bot.send_message(
+                msg.chat.id,
+                f"✅ Payment verified!\n"
+                f"🆔 Order: <code>{order_id}</code>\n\n"
+                f"⚠️ Amount detect nahi hua. Admin se contact karein:\n"
+                f"Order ID share karein aur credit karwa lein.",
+                parse_mode="HTML"
+            )
+    elif status == "expired":
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🔄 New Payment", callback_data="recharge_fampay_auto"))
+        markup.add(InlineKeyboardButton("📞 Contact Admin", url="https://t.me/ID_GMS_SELLER_bot"))
+        bot.send_message(
+            msg.chat.id,
+            f"❌ <b>Order Expired</b>\n\n"
+            f"🆔 <code>{order_id}</code>\n\n"
+            f"Agar aapne pay kiya hai toh admin se contact karein.",
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+    else:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🔄 Check Again", callback_data="check_again_" + order_id[:20]))
+        bot.send_message(
+            msg.chat.id,
+            f"⏳ <b>Payment Abhi Pending Hai</b>\n\n"
+            f"🆔 <code>{order_id}</code>\n\n"
+            f"Pay karne ke baad thodi der mein automatic credit ho jayega.\n"
+            f"Ya 2-3 min baad dobara /checkpayment karein.",
+            parse_mode="HTML"
+        )
+
+
 @bot.message_handler(commands=['menu'])
 def cmd_menu(msg):
     user_id = msg.from_user.id
