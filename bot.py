@@ -3952,258 +3952,353 @@ def get_usdt_inr_rate() -> float:
     except Exception:
         return 0.0
 
-def fampay_generate_qr(amount: float):
-    """Generate FamPay QR/order via website API — tries multiple endpoint formats"""
-    if not FAMPAY_API_KEY or not FAMPAY_BASE_URL:
-        logger.error("FamPay QR: API key or base URL not set")
-        return None
-    try:
-        base = FAMPAY_BASE_URL.rstrip('/')
-        key_preview = FAMPAY_API_KEY[:8] + '...'
-        logger.info(f"FamPay DEBUG — base={base} | key={key_preview} | amount={amount}")
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+# ═══════════════════════════════════════════════════════════════════════
+# AUTO UPI (FAMPAY) — COMPLETE REWRITE
+# Flow: User enters amount → API generates QR → user scans & pays →
+#       background thread polls API every 6s → auto-credit on success
+#       Webhook endpoint also handles instant server-push confirmation
+# ═══════════════════════════════════════════════════════════════════════
 
-        # Format A: GET /api/qr?api=KEY&amount=AMT
-        endpoints = [
-            ("GET",  f"{base}/api/qr?api={FAMPAY_API_KEY}&amount={int(amount)}", None),
-            ("GET",  f"{base}/api/qr?api_key={FAMPAY_API_KEY}&amount={int(amount)}", None),
-            ("POST", f"{base}/api/qr",
-             {"api": FAMPAY_API_KEY, "amount": int(amount)}),
-            ("POST", f"{base}/api/generate",
-             {"api_key": FAMPAY_API_KEY, "amount": int(amount)}),
-        ]
-        for method, url, payload in endpoints:
-            try:
-                if method == "GET":
-                    resp = requests.get(url, headers=headers, timeout=20)
-                else:
-                    resp = requests.post(url, json=payload, headers=headers, timeout=20)
-                logger.info(f"FamPay QR [{method}] status={resp.status_code} body={resp.text[:300]}")
-                if resp.status_code not in (200, 201):
-                    continue
-                raw = resp.json()
-                # Format 1: {"status":"success","data":{...}}
-                if raw.get("status") == "success" and "data" in raw:
-                    d = raw["data"]
-                    if d.get("order_id"):
-                        return d
-                # Format 2: flat with order_id
-                if raw.get("order_id"):
-                    return raw
-                # Format 3: {"success":true, "order_id":...}
-                if raw.get("success") and raw.get("order_id"):
-                    return raw
-            except Exception as _e:
-                logger.warning(f"FamPay endpoint {url} failed: {_e}")
-                continue
-        logger.error("FamPay QR: all endpoints failed")
+def _fp_api_request(method: str, path: str, params: dict = None, json_body: dict = None):
+    """
+    Central FamPay API caller.
+    Injects api_key + webhook_secret into every request.
+    Returns parsed JSON or None on failure.
+    """
+    base = FAMPAY_BASE_URL.rstrip('/')
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Api-Key": FAMPAY_API_KEY,
+        "X-Webhook-Secret": FAMPAY_WEBHOOK_SECRET,
+    }
+    # Always include credentials in query params too (some APIs need both)
+    qp = {"api_key": FAMPAY_API_KEY, "webhook_secret": FAMPAY_WEBHOOK_SECRET}
+    if params:
+        qp.update(params)
+    url = f"{base}{path}"
+    try:
+        if method.upper() == "GET":
+            resp = requests.get(url, params=qp, headers=headers, timeout=20)
+        else:
+            body = {"api_key": FAMPAY_API_KEY, "webhook_secret": FAMPAY_WEBHOOK_SECRET}
+            if json_body:
+                body.update(json_body)
+            resp = requests.post(url, params=qp, json=body, headers=headers, timeout=20)
+        logger.info(f"FamPay [{method} {path}] → {resp.status_code} | {resp.text[:300]}")
+        if resp.status_code in (200, 201):
+            return resp.json()
         return None
     except Exception as e:
-        logger.error(f"FamPay QR generation error: {e}")
+        logger.error(f"FamPay API error [{method} {path}]: {e}")
         return None
 
-def fampay_verify_payment(order_id: str):
-    """Check payment status for a FamPay order — tries multiple endpoint formats"""
-    base = FAMPAY_BASE_URL.rstrip('/')
-    endpoints = [
-        f"{base}/api/verify?api_key={FAMPAY_API_KEY}&order_id={order_id}",
-        f"{base}/api/verify?api={FAMPAY_API_KEY}&order_id={order_id}",
-        f"{base}/api/status?api_key={FAMPAY_API_KEY}&order_id={order_id}",
-        f"{base}/api/check?api_key={FAMPAY_API_KEY}&order_id={order_id}",
+
+def fp_generate_order(amount: float):
+    """
+    Create a new payment order. Returns dict with order_id + qr_url, or None.
+    Tries multiple endpoint paths used by different API versions.
+    """
+    amt_int = int(amount)
+    paths_get = [
+        f"/api/qr?amount={amt_int}",
+        f"/api/generate?amount={amt_int}",
+        f"/api/create?amount={amt_int}",
     ]
-    for url in endpoints:
-        try:
-            resp = requests.get(url, timeout=15)
-            if resp.status_code in (200, 201):
-                data = resp.json()
-                logger.info(f"FamPay verify [{url.split('?')[0].split('/')[-1]}] → {data}")
-                if data.get("status") in ("success", "pending", "expired"):
-                    return data
-        except Exception as e:
-            logger.warning(f"FamPay verify endpoint failed ({url}): {e}")
+    paths_post = [
+        ("/api/qr",       {"amount": amt_int}),
+        ("/api/generate", {"amount": amt_int}),
+        ("/api/create",   {"amount": amt_int}),
+    ]
+    # Try GET endpoints first
+    for path in paths_get:
+        raw = _fp_api_request("GET", path)
+        if not raw:
             continue
-    logger.error(f"FamPay verify: all endpoints failed for order {order_id}")
+        order = _fp_extract_order(raw)
+        if order:
+            logger.info(f"FamPay order created (GET {path}): {order}")
+            return order
+    # Then POST
+    for path, body in paths_post:
+        raw = _fp_api_request("POST", path, json_body=body)
+        if not raw:
+            continue
+        order = _fp_extract_order(raw)
+        if order:
+            logger.info(f"FamPay order created (POST {path}): {order}")
+            return order
+    logger.error("FamPay: all generate endpoints failed")
     return None
 
-def fampay_credit_and_notify(chat_id: int, user_id: int, order_id: str, amount: float, utr: str = ""):
-    """Credit balance and notify user — called by both poll and UTR handler"""
+
+def _fp_extract_order(raw: dict):
+    """Extract order_id + qr_url from any API response shape."""
+    if not isinstance(raw, dict):
+        return None
+    # Shape 1: {"status":"success","data":{"order_id":...,"qr_url":...}}
+    if raw.get("status") == "success" and isinstance(raw.get("data"), dict):
+        d = raw["data"]
+        if d.get("order_id"):
+            return {"order_id": d["order_id"], "qr_url": d.get("qr_url", "")}
+    # Shape 2: flat {"order_id":...,"qr_url":...}
+    if raw.get("order_id"):
+        return {"order_id": raw["order_id"], "qr_url": raw.get("qr_url", "")}
+    # Shape 3: {"success":true,"order_id":...}
+    if raw.get("success") and raw.get("order_id"):
+        return {"order_id": raw["order_id"], "qr_url": raw.get("qr_url", "")}
+    return None
+
+
+def fp_check_status(order_id: str):
+    """
+    Poll payment status. Returns "success" / "pending" / "expired" / "error".
+    Tries multiple endpoint paths.
+    """
+    paths = [
+        f"/api/verify?order_id={order_id}",
+        f"/api/status?order_id={order_id}",
+        f"/api/check?order_id={order_id}",
+    ]
+    for path in paths:
+        raw = _fp_api_request("GET", path)
+        if not raw:
+            continue
+        # Unwrap nested data if present
+        data = raw.get("data", raw)
+        status = (data.get("status") or raw.get("status") or "").lower()
+        if status in ("success", "pending", "expired"):
+            logger.info(f"FamPay status [{path}]: {status}")
+            return status
+    logger.warning(f"FamPay: no valid status for order {order_id}")
+    return "error"
+
+
+def fp_credit_wallet(chat_id: int, user_id: int, order_id: str, amount: float):
+    """
+    Credit user wallet once. Thread-safe via fampay_approved_orders set.
+    Saves to DB and notifies user.
+    """
     if order_id in fampay_approved_orders:
-        return  # Already credited, skip
+        return
     fampay_approved_orders.add(order_id)
-    # Clear state
     fampay_auto_states.pop(user_id, None)
+
     add_balance(user_id, amount)
-    recharges_col.insert_one({
-        "req_id": f"FP_{order_id}",
-        "user_id": user_id,
-        "amount": amount,
-        "method": "FamPay Auto",
-        "status": "approved",
-        "order_id": order_id,
-        "utr": utr or order_id,
-        "created_at": datetime.utcnow(),
-        "processed_at": datetime.utcnow(),
-        "auto_approved": True
-    })
     new_bal = get_balance(user_id)
+
+    # Persist to DB
     try:
+        recharges_col.update_one(
+            {"order_id": order_id},
+            {"$set": {
+                "status": "approved",
+                "method": "UPI Auto",
+                "auto_approved": True,
+                "processed_at": datetime.utcnow(),
+                "new_balance": new_bal,
+            }},
+            upsert=True
+        )
+        recharges_col.update_one(
+            {"order_id": order_id},
+            {"$setOnInsert": {
+                "req_id": f"FP_{order_id}",
+                "user_id": user_id,
+                "amount": amount,
+                "created_at": datetime.utcnow(),
+            }},
+            upsert=True
+        )
+    except Exception as db_err:
+        logger.error(f"FamPay DB write error: {db_err}")
+
+    # Notify user
+    try:
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu"))
         bot.send_message(
             chat_id,
             f"✅ <b>Payment Confirmed!</b>\n\n"
-            f"💰 <b>Amount:</b> {format_currency(amount)}\n"
-            f"🔢 <b>UTR:</b> <code>{utr or order_id}</code>\n"
-            f"💳 <b>New Balance:</b> {format_currency(new_bal)}\n\n"
-            f"🎉 Wallet credited instantly!",
-            parse_mode="HTML"
-        )
-    except:
-        pass
-    try:
-        log_recharge_approved_async(user_id=user_id, amount=amount, method="FamPay Auto", utr=utr or order_id)
-    except:
-        pass
-
-def _send_expiry_alert(chat_id: int, amount: float, order_id: str = ""):
-    """Send QR expired alert with retry button — only once per order"""
-    if order_id and order_id in fampay_notified_orders:
-        return
-    if order_id:
-        fampay_notified_orders.add(order_id)
-    try:
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("🔄 Try Again", callback_data="recharge_fampay_auto"))
-        markup.add(InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"))
-        bot.send_message(
-            chat_id,
-            "❌ <b>Wrong / No Payment Detected</b>\n\n"
-            f"💰 <b>Amount:</b> {format_currency(amount)}\n\n"
-            "FamPay did not receive your payment.\n"
-            "Possible reasons:\n"
-            "• Wrong amount paid\n"
-            "• Payment was not completed\n"
-            "• QR expired before payment\n\n"
-            "If you already paid correctly, contact admin with UTR.\n\n"
-            "What would you like to do?",
+            f"💰 <b>Amount Credited:</b> {format_currency(amount)}\n"
+            f"💳 <b>New Wallet Balance:</b> {format_currency(new_bal)}\n"
+            f"🆔 <b>Order:</b> <code>{order_id}</code>\n\n"
+            f"🎉 Aapka wallet turant credit ho gaya!",
             parse_mode="HTML",
             reply_markup=markup
         )
     except Exception as e:
-        logger.error(f"Expiry alert error: {e}")
+        logger.error(f"FamPay credit notify error: {e}")
 
-def fampay_poll_payment(chat_id: int, user_id: int, order_id: str, amount: float, timeout_secs: int = 300):
-    """Background thread: poll FamPay API until paid or expired"""
-    deadline = time.time() + timeout_secs
+    # Log to channel
+    try:
+        log_recharge_approved_async(user_id=user_id, amount=amount, method="UPI Auto", utr=order_id)
+    except Exception:
+        pass
+
+
+def fp_reject_and_notify(chat_id: int, user_id: int, order_id: str, amount: float, reason: str = "expired"):
+    """Tell user payment failed/expired and give admin escalation option."""
+    if order_id in fampay_notified_orders:
+        return
+    fampay_notified_orders.add(order_id)
+    fampay_auto_states.pop(user_id, None)
+
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("🔄 Try Again", callback_data="recharge_fampay_auto"))
+    markup.add(InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"))
+    markup.add(InlineKeyboardButton("📞 Contact Admin", url="https://t.me/ID_GMS_SELLER_bot"))
+    try:
+        bot.send_message(
+            chat_id,
+            f"❌ <b>Payment {reason.title()}</b>\n\n"
+            f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+            f"🆔 <b>Order:</b> <code>{order_id}</code>\n\n"
+            f"Agar aapne actually pay kiya hai toh admin se contact karein "
+            f"aur order ID share karein.\n\n"
+            f"Warna neeche se dobara try karein:",
+            parse_mode="HTML",
+            reply_markup=markup
+        )
+    except Exception as e:
+        logger.error(f"FamPay reject notify error: {e}")
+
+
+def fp_poll_thread(chat_id: int, user_id: int, order_id: str, amount: float, timeout: int = 300):
+    """
+    Background thread: polls API every 6 seconds for up to `timeout` seconds.
+    Credits wallet on success, notifies on expiry/timeout.
+    """
+    deadline = time.time() + timeout
+    interval = 6
     while time.time() < deadline:
-        time.sleep(8)
+        time.sleep(interval)
+        # Cancelled by user
         if user_id in fampay_cancelled_users:
             fampay_cancelled_users.discard(user_id)
-            return  # User cancelled via /cancel
-        if order_id in fampay_approved_orders:
-            return  # Already credited
-        if order_id in fampay_notified_orders:
-            return  # Already sent final message
-        result = fampay_verify_payment(order_id)
-        if not result:
-            continue
-        status = result.get("status", "")
+            logger.info(f"FamPay poll: user {user_id} cancelled")
+            return
+        # Already handled
+        if order_id in fampay_approved_orders or order_id in fampay_notified_orders:
+            return
+        status = fp_check_status(order_id)
         if status == "success":
-            fampay_credit_and_notify(chat_id, user_id, order_id, amount)
+            fp_credit_wallet(chat_id, user_id, order_id, amount)
             return
         elif status == "expired":
-            _send_expiry_alert(chat_id, amount, order_id)
+            fp_reject_and_notify(chat_id, user_id, order_id, amount, reason="expired")
             return
-    # Timeout reached (5 min) without confirmation
-    _send_expiry_alert(chat_id, amount, order_id)
+        # "pending" or "error" → keep polling
+        logger.debug(f"FamPay poll [{order_id}]: {status} — continuing...")
+    # Timeout
+    if order_id not in fampay_approved_orders and order_id not in fampay_notified_orders:
+        fp_reject_and_notify(chat_id, user_id, order_id, amount, reason="timed out")
 
-# ---------------------------------------------------------------------
-# FAMPAY AUTO-PAY AMOUNT HANDLER
-# ---------------------------------------------------------------------
+
+# ── Amount input handler ──────────────────────────────────────────────
 
 def process_fampay_auto_amount(msg):
-    """Handle amount input for UPI Auto (QR) — animated QR gen, then ask UTR as formality"""
+    """User sends amount → generate order → show QR → start poll thread."""
     try:
         amount = float(msg.text.strip())
-        if amount < 1:
-            bot.send_message(msg.chat.id, "❌ Minimum recharge is ₹1. Enter amount again:")
-            bot.register_next_step_handler(msg, process_fampay_auto_amount)
-            return
-        user_id = msg.from_user.id
+    except ValueError:
+        bot.send_message(msg.chat.id, "❌ Sirf number likhein (e.g. 100):")
+        bot.register_next_step_handler(msg, process_fampay_auto_amount)
+        return
 
-        # ----- Animated "Generating QR" steps -----
-        gen_msg = bot.send_message(
-            msg.chat.id,
-            "⚙️ <b>SYSTEM ACTIVATING</b> ⚙️\n"
+    if amount < 1:
+        bot.send_message(msg.chat.id, "❌ Minimum recharge ₹1 hai. Dobara enter karein:")
+        bot.register_next_step_handler(msg, process_fampay_auto_amount)
+        return
+
+    user_id = msg.from_user.id
+
+    # Animated status
+    anim = bot.send_message(
+        msg.chat.id,
+        "⚙️ <b>UPI Auto System</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n"
+        "🔗 <code>FamPay server se connect ho raha hai...</code>",
+        parse_mode="HTML"
+    )
+    time.sleep(0.8)
+    try:
+        bot.edit_message_text(
+            "⚡ <b>QR Generate Ho Raha Hai</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━\n"
-            "🔗 <code>Connecting to FamPay...</code>",
-            parse_mode="HTML"
+            f"💳 <code>₹{int(amount)} ka payment link bana raha hai...</code>",
+            msg.chat.id, anim.message_id, parse_mode="HTML"
         )
-        time.sleep(0.9)
-        try:
-            bot.edit_message_text(
-                "⚡ <b>GENERATING QR</b> ⚡\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "💳 <code>Creating payment link...</code>",
-                msg.chat.id, gen_msg.message_id, parse_mode="HTML"
-            )
-        except: pass
-        time.sleep(0.8)
+    except Exception:
+        pass
+    time.sleep(0.7)
 
-        data = fampay_generate_qr(amount)
+    order = fp_generate_order(amount)
 
-        # Auto-delete the generating animation
-        try:
-            bot.delete_message(msg.chat.id, gen_msg.message_id)
-        except: pass
+    try:
+        bot.delete_message(msg.chat.id, anim.message_id)
+    except Exception:
+        pass
 
-        if not data or not data.get("order_id"):
-            bot.send_message(msg.chat.id, "❌ Failed to generate FamPay QR. Try manual payment.", parse_mode="HTML")
-            return
-
-        order_id = data["order_id"]
-        qr_url = data.get("qr_url") or f"{FAMPAY_BASE_URL.rstrip('/')}/qr/{order_id}.png"
-        caption = (
-            f"⚡ <b>UPI Auto Pay QR</b>\n\n"
-            f"💰 <b>Amount:</b> {format_currency(amount)}\n"
-            f"🆔 <b>Order ID:</b> <code>{order_id}</code>\n\n"
-            f"📋 <b>Steps:</b>\n"
-            f"1️⃣ Scan QR with any UPI app\n"
-            f"2️⃣ Pay ₹{int(amount)} exactly\n"
-            f"3️⃣ Send UTR below for instant confirmation ⚡\n\n"
-            f"⏰ QR expires in 5 minutes"
-        )
-        try:
-            bot.send_photo(msg.chat.id, qr_url, caption=caption, parse_mode="HTML")
-        except:
-            bot.send_message(msg.chat.id, caption + f"\n\n🔗 QR: {qr_url}", parse_mode="HTML")
-
-        # Ask for UTR as formality (for instant auto-approval)
+    if not order or not order.get("order_id"):
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("💳 UPI Manual Try Karein", callback_data="recharge_upi"))
         bot.send_message(
             msg.chat.id,
-            "📝 <b>Step 2: Confirm Payment</b>\n\n"
-            "After paying, send your <b>UTR / Transaction ID</b>\n"
-            "<i>(Found in your UPI app payment history)</i>",
-            parse_mode="HTML"
+            "❌ <b>QR Generate Nahi Hua</b>\n\n"
+            "FamPay server se connection fail hua.\n"
+            "Thodi der baad try karein ya UPI Manual use karein.",
+            parse_mode="HTML",
+            reply_markup=markup
         )
-        fampay_auto_states[user_id] = {
-            "step": "waiting_utr",
-            "amount": amount,
-            "order_id": order_id,
-            "chat_id": msg.chat.id
-        }
+        return
 
-        # Also start background API polling as backup
-        threading.Thread(
-            target=fampay_poll_payment,
-            args=(msg.chat.id, user_id, order_id, amount),
-            daemon=True
-        ).start()
+    order_id = order["order_id"]
+    qr_url = order.get("qr_url", "")
 
-    except ValueError:
-        bot.send_message(msg.chat.id, "❌ Invalid amount. Enter numbers only:")
-        bot.register_next_step_handler(msg, process_fampay_auto_amount)
-    except Exception as e:
-        logger.error(f"FamPay auto amount error: {e}")
-        bot.send_message(msg.chat.id, "❌ Error processing FamPay payment. Try again.")
+    caption = (
+        f"⚡ <b>UPI Auto Pay</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━\n"
+        f"💰 <b>Amount:</b> {format_currency(amount)}\n"
+        f"🆔 <b>Order ID:</b> <code>{order_id}</code>\n\n"
+        f"📋 <b>Steps:</b>\n"
+        f"1️⃣ Neeche QR scan karein kisi bhi UPI app se\n"
+        f"2️⃣ Exactly ₹{int(amount)} pay karein\n"
+        f"3️⃣ Payment karte hi wallet auto-credit ho jayega ✅\n\n"
+        f"⏰ <i>QR 5 minute mein expire ho jayega</i>"
+    )
+
+    if qr_url:
+        try:
+            bot.send_photo(msg.chat.id, qr_url, caption=caption, parse_mode="HTML")
+        except Exception:
+            bot.send_message(msg.chat.id, caption + f"\n\n🔗 QR Link: {qr_url}", parse_mode="HTML")
+    else:
+        bot.send_message(msg.chat.id, caption, parse_mode="HTML")
+
+    # Waiting message
+    bot.send_message(
+        msg.chat.id,
+        "⏳ <b>Payment ka wait kar raha hoon...</b>\n\n"
+        "Pay karte hi yahan automatically confirmation aayega.\n"
+        "<i>Kuch galat lage toh /cancel karein.</i>",
+        parse_mode="HTML"
+    )
+
+    # Save state
+    fampay_auto_states[user_id] = {
+        "step": "polling",
+        "amount": amount,
+        "order_id": order_id,
+        "chat_id": msg.chat.id,
+    }
+
+    # Start background polling thread
+    threading.Thread(
+        target=fp_poll_thread,
+        args=(msg.chat.id, user_id, order_id, amount, 300),
+        daemon=True
+    ).start()
 
 # ---------------------------------------------------------------------
 # PROCESS RECHARGE AMOUNT FUNCTION - FIXED DATABASE ISSUE
