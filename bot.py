@@ -77,8 +77,14 @@ CRYPTO_NETWORK      = _g('_CRN7', 'TRC20')
 CRYPTO_QR_URL       = _g('_CRQ1')  # USDT QR image URL
 
 # MUST JOIN CHANNELS - TWO CHANNELS
-MUST_JOIN_CHANNEL_1 = "@Legendaryevent"
-MUST_JOIN_CHANNEL_2 = "@II_LEGEND_OTP_SELLER_UPDATES_II"
+MUST_JOIN_CHANNEL_1 = "@Drdupdates"
+MUST_JOIN_CHANNEL_2 = "@rchiex"
+
+# Premium button labels for join prompt
+CHANNEL_BUTTON_LABELS = {
+    "@Drdupdates": "📡 ᴜᴘᴅᴀᴛᴇꜱ  —  Join Karo ➤",
+    "@rchiex":     "🛠️ ꜱᴜᴘᴘᴏʀᴛ  —  Join Karo ➤",
+}
 # LOG CHANNELS
 LOG_CHANNEL_ID          = "-1003659930873"   # PUBLIC  — sold/OTP/recharge only
 PERSONAL_LOG_CHANNEL_ID_FIXED = "-1003912691513"  # PERSONAL — full audit
@@ -1834,10 +1840,11 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
         
         markup = InlineKeyboardMarkup(row_width=2)
         
-        # Add buttons for both channels
+        # Add premium-style buttons for each missing channel
         for channel in missing_channels:
+            label = CHANNEL_BUTTON_LABELS.get(channel, f"📢 Join {channel}")
             markup.add(InlineKeyboardButton(
-                f"📢 Join {channel}",
+                label,
                 url=f"https://t.me/{channel[1:]}"
             ))
         
