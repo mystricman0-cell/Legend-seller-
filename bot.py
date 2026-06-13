@@ -4509,183 +4509,51 @@ def handle_screenshot_input(msg):
         bot.send_message(msg.chat.id, f"❌ Error submitting payment: {str(e)}")
 
 # =============================================================
-# FAMPAY AUTO UTR HANDLER — formality, then auto-approve
+# FAMPAY WEBHOOK ENDPOINT — instant server-push confirmation
+# Registered at /fampay/webhook — FamPay calls this when paid
 # =============================================================
 
-@bot.message_handler(func=lambda m: fampay_auto_states.get(m.from_user.id, {}).get("step") == "waiting_utr")
-def handle_fampay_utr(msg):
-    user_id = msg.from_user.id
-    state = fampay_auto_states.get(user_id)
-    if not state or state.get("step") != "waiting_utr":
-        return
-
-    utr = msg.text.strip()
-    if len(utr) < 4:
-        bot.send_message(msg.chat.id, "❌ UTR too short. Please send a valid UTR / Transaction ID:")
-        return
-
-    fampay_auto_states[user_id]["utr"] = utr
-    fampay_auto_states[user_id]["step"] = "waiting_screenshot"
-
-    bot.send_message(
-        msg.chat.id,
-        f"✅ <b>UTR Received:</b> <code>{utr}</code>\n\n"
-        "📸 <b>Step 3:</b> Send payment <b>screenshot</b> for admin record.",
-        parse_mode="HTML"
-    )
-
-@bot.message_handler(
-    content_types=['photo'],
-    func=lambda m: fampay_auto_states.get(m.from_user.id, {}).get("step") == "waiting_screenshot"
-)
-def handle_fampay_screenshot(msg):
-    """
-    Screenshot received — show verification animation, check API immediately,
-    credit on success, warn on wrong/expired, wait on pending.
-    """
-    user_id = msg.from_user.id
-    state = fampay_auto_states.get(user_id)
-    if not state or state.get("step") != "waiting_screenshot":
-        return
-
+def _fp_webhook_handler():
+    """Flask route handler for FamPay webhook push."""
+    import hmac, hashlib
     try:
-        screenshot_file_id = msg.photo[-1].file_id
-        amount   = state["amount"]
-        order_id = state["order_id"]
-        utr      = state.get("utr", "")
-        chat_id  = state["chat_id"]
-        req_id   = f"FP_{order_id}"
+        raw_body = flask_request.get_data(as_text=True)
+        # Verify webhook signature if secret set
+        if FAMPAY_WEBHOOK_SECRET:
+            sig = flask_request.headers.get("X-Webhook-Signature", "")
+            expected = hmac.new(
+                FAMPAY_WEBHOOK_SECRET.encode(),
+                raw_body.encode(),
+                hashlib.sha256
+            ).hexdigest()
+            if sig and sig != expected:
+                logger.warning("FamPay webhook: invalid signature — ignoring")
+                return "INVALID", 403
 
-        # ── Verification animation ──────────────────────────────────
-        anim = bot.send_message(
-            chat_id,
-            "🔍 <b>VERIFYING PAYMENT</b> 🔍\n"
-            "━━━━━━━━━━━━━━━━━━━━━\n"
-            "🔗 <code>Contacting FamPay server...</code>",
-            parse_mode="HTML"
-        )
-        time.sleep(1.0)
-        try:
-            bot.edit_message_text(
-                "⚡ <b>CHECKING TRANSACTION</b> ⚡\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n"
-                "💳 <code>Verifying payment details...</code>",
-                chat_id, anim.message_id, parse_mode="HTML"
-            )
-        except: pass
-        time.sleep(0.8)
+        data = flask_request.get_json(silent=True) or {}
+        order_id = data.get("order_id") or data.get("orderId", "")
+        status   = (data.get("status") or "").lower()
+        amount   = float(data.get("amount") or 0)
+        logger.info(f"FamPay webhook received: order={order_id} status={status} amount={amount}")
 
-        # ── Immediate API check ─────────────────────────────────────
-        result = fampay_verify_payment(order_id)
-        status = result.get("status", "error") if result else "error"
-
-        # Delete animation
-        try:
-            bot.delete_message(chat_id, anim.message_id)
-        except: pass
-
-        # ── Save proof to DB (admin record regardless of result) ────
-        recharges_col.update_one(
-            {"req_id": req_id},
-            {"$set": {"utr": utr, "screenshot": screenshot_file_id,
-                      "screenshot_at": datetime.utcnow()}},
-            upsert=False
-        )
-        if not recharges_col.find_one({"req_id": req_id}):
-            recharges_col.insert_one({
-                "req_id": req_id, "user_id": user_id, "amount": amount,
-                "method": "UPI Auto", "status": "pending",
-                "order_id": order_id, "utr": utr,
-                "screenshot": screenshot_file_id,
-                "created_at": datetime.utcnow(),
-            })
-
-        # ── Handle result ───────────────────────────────────────────
-        fampay_auto_states.pop(user_id, None)
-
-        if status == "success":
-            # Payment confirmed by API — credit wallet
-            fampay_credit_and_notify(chat_id, user_id, order_id, amount, utr=utr)
-
-        elif status in ("expired", "error"):
-            # Payment not received or QR expired
-            fampay_notified_orders.add(order_id)
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("🔄 Try Again", callback_data="recharge_fampay_auto"))
-            markup.add(InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"))
-            bot.send_message(
-                chat_id,
-                "❌ <b>Wrong / No Payment Detected</b>\n\n"
-                f"💰 <b>Amount:</b> {format_currency(amount)}\n"
-                f"🔢 <b>UTR:</b> <code>{utr}</code>\n\n"
-                "FamPay did not confirm this payment.\n"
-                "Possible reasons:\n"
-                "• Wrong amount paid\n"
-                "• Payment was not completed\n"
-                "• QR expired before payment\n\n"
-                "If you actually paid, contact admin with your UTR.",
-                parse_mode="HTML",
-                reply_markup=markup
-            )
-            # Notify admin about failed attempt
-            all_admins = get_all_admins()
-            admin_cap = (
-                f"⚠️ <b>UPI Auto — Failed/Wrong Payment</b>\n\n"
-                f"👤 User: <code>{user_id}</code>\n"
-                f"💰 Amount: {format_currency(amount)}\n"
-                f"🔢 UTR: <code>{utr}</code>\n"
-                f"🆔 Order: <code>{order_id}</code>\n"
-                f"📊 API Status: <code>{status}</code>\n\n"
-                f"<i>No credit given. Admin can manually approve if payment was real.</i>"
-            )
-            admin_markup = InlineKeyboardMarkup(row_width=2)
-            admin_markup.add(
-                InlineKeyboardButton("✅ Approve Manually", callback_data=f"approve_rech|{req_id}"),
-                InlineKeyboardButton("❌ Reject", callback_data=f"cancel_rech|{req_id}")
-            )
-            for admin in all_admins:
-                try:
-                    bot.send_photo(admin["user_id"], screenshot_file_id,
-                                   caption=admin_cap, parse_mode="HTML",
-                                   reply_markup=admin_markup)
-                except: pass
-
-        else:
-            # status == "pending" — payment not yet received, background poll continues
-            bot.send_message(
-                chat_id,
-                "⏳ <b>Payment Not Yet Received</b>\n\n"
-                f"💰 <b>Amount:</b> {format_currency(amount)}\n\n"
-                "FamPay hasn't confirmed your payment yet.\n"
-                "If you just paid, wallet will be credited automatically within 1–2 minutes.\n\n"
-                "<i>Still waiting for payment confirmation...</i>",
-                parse_mode="HTML"
-            )
-            # Notify admin for records
-            all_admins = get_all_admins()
-            admin_cap = (
-                f"📋 <b>UPI Auto — Payment Proof (Pending)</b>\n\n"
-                f"👤 User: <code>{user_id}</code>\n"
-                f"💰 Amount: {format_currency(amount)}\n"
-                f"🔢 UTR: <code>{utr}</code>\n"
-                f"🆔 Order: <code>{order_id}</code>\n\n"
-                f"⏳ <i>API still pending. Auto-credit when confirmed.</i>"
-            )
-            admin_markup = InlineKeyboardMarkup(row_width=2)
-            admin_markup.add(
-                InlineKeyboardButton("✅ Approve Manually", callback_data=f"approve_rech|{req_id}"),
-                InlineKeyboardButton("❌ Reject", callback_data=f"cancel_rech|{req_id}")
-            )
-            for admin in all_admins:
-                try:
-                    bot.send_photo(admin["user_id"], screenshot_file_id,
-                                   caption=admin_cap, parse_mode="HTML",
-                                   reply_markup=admin_markup)
-                except: pass
-
+        if status == "success" and order_id:
+            # Find which user owns this order
+            record = recharges_col.find_one({"order_id": order_id})
+            if record:
+                user_id  = record["user_id"]
+                chat_id  = record.get("chat_id", user_id)
+                amt      = record.get("amount", amount)
+                fp_credit_wallet(chat_id, user_id, order_id, amt)
+            else:
+                # Check in-memory states
+                for uid, st in list(fampay_auto_states.items()):
+                    if st.get("order_id") == order_id:
+                        fp_credit_wallet(st["chat_id"], uid, order_id, st["amount"])
+                        break
+        return "OK", 200
     except Exception as e:
-        logger.error(f"FamPay screenshot handler error: {e}")
-        bot.send_message(msg.chat.id, "❌ Error processing. Please contact admin.")
+        logger.error(f"FamPay webhook error: {e}")
+        return "ERROR", 500
 
 # =============================================================
 # RECEIVER ID INPUT HANDLER - FIXED NAME DISPLAY
