@@ -7597,32 +7597,25 @@ def chat_handler(msg):
         user_name = msg.from_user.first_name or "User"
         username = msg.from_user.username or ""
 
-        # ── Security Check ─────────────────────────────────────────────
-        if _is_security_suspicious(text):
-            # Warn the user
+        # ── Security probe check ────────────────────────────────────────
+        if _ai_is_secret_probe(text):
             bot.send_message(
                 user_id,
                 "🚨 <b>SECURITY WARNING!</b>\n\n"
-                "⚠️ Aap bot ki confidential information access karne ki koshish kar rahe hain.\n\n"
-                "❌ Yeh allowed nahi hai. Is activity ko admin ko report kar diya gaya hai.\n\n"
-                "✅ Agar aapko help chahiye toh /start press karein.",
+                "⚠️ Bot ki confidential information share nahi ki ja sakti.\n"
+                "✅ Koi aur help chahiye toh /start press karein.",
                 parse_mode="HTML"
             )
-            # Alert admin with full user details
             try:
                 bot.send_message(
                     ADMIN_ID,
-                    f"🚨 <b>SECURITY ALERT!</b>\n\n"
-                    f"<b>🆔 User ID:</b> <code>{user_id}</code>\n"
-                    f"<b>👤 Username:</b> @{username or 'N/A'}\n"
-                    f"<b>📛 Name:</b> {user_name}\n"
-                    f"<b>💬 Message:</b> <code>{text[:300]}</code>\n\n"
-                    f"⚠️ Bot secrets/config extract karne ki koshish ki!",
+                    f"🚨 <b>Secret Probe Alert</b>\n\n"
+                    f"👤 <code>{user_id}</code> | @{username or 'N/A'} | {user_name}\n"
+                    f"💬 <code>{text[:300]}</code>",
                     parse_mode="HTML"
                 )
-            except Exception as _se:
-                logger.error(f"Security alert to admin failed: {_se}")
-            # Log to personal channel
+            except Exception:
+                pass
             threading.Thread(
                 target=log_personal_security_alert_async,
                 args=(user_id, username, user_name, text),
@@ -7630,13 +7623,19 @@ def chat_handler(msg):
             ).start()
             return
 
-        # ── DRS X AI Chatbot Response ──────────────────────────────────
+        # ── DRS X AI — new system ──────────────────────────────────────
         if text and not text.startswith('/'):
             if user_id in ai_mode_users:
-                # AI mode ON — send to OpenAI
-                quote = random.choice(_BOT_QUOTES)
-                ai_reply = _get_ai_response(text, user_name)
+                # Show typing action
+                try:
+                    bot.send_chat_action(user_id, "typing")
+                except Exception:
+                    pass
+
+                ai_reply = _ai_reply(user_id, user_name, text)
+
                 if ai_reply:
+                    quote = random.choice(_BOT_QUOTES)
                     full_reply = (
                         f"🤖 <b>DRS X AI</b>\n"
                         f"━━━━━━━━━━━━━━━━━━━━━\n"
@@ -7645,14 +7644,18 @@ def chat_handler(msg):
                     )
                     try:
                         bot.send_message(user_id, full_reply, parse_mode="HTML")
-                        threading.Thread(
-                            target=log_personal_ai_chat_async,
-                            args=(user_id, username, text, ai_reply),
-                            daemon=True
-                        ).start()
                     except Exception as _ae:
                         logger.error(f"AI reply send error: {_ae}")
-                        bot.send_message(user_id, "⚠️ AI response mein error aaya. Dobara try karein.")
+                        try:
+                            bot.send_message(user_id, ai_reply)
+                        except Exception:
+                            pass
+                    # Log async
+                    threading.Thread(
+                        target=log_personal_ai_chat_async,
+                        args=(user_id, username, text, ai_reply),
+                        daemon=True
+                    ).start()
                 else:
                     bot.send_message(
                         user_id,
@@ -7660,7 +7663,7 @@ def chat_handler(msg):
                         "Menu ke liye /start press karein.",
                     )
             else:
-                # AI mode OFF — prompt user to use menu
+                # AI mode OFF
                 bot.send_message(
                     user_id,
                     f"Namaste {user_name}! 👋\n"
