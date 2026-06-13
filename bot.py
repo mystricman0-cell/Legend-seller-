@@ -2631,7 +2631,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
             )
             markup = InlineKeyboardMarkup(row_width=1)
             markup.add(
-                InlineKeyboardButton("📩 Contact Admin", url=f"https://t.me/{os.getenv('ADMIN_USERNAME', '')}"),
+                InlineKeyboardButton("📩 Contact Admin", url="https://t.me/rchiex"),
                 InlineKeyboardButton("⬅️ Back", callback_data="recharge")
             )
             # Delete old message and send photo with QR
@@ -4359,7 +4359,7 @@ def fp_reject_and_notify(chat_id: int, user_id: int, order_id: str, amount: floa
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("🔄 Try Again", callback_data="recharge_fampay_auto"))
     markup.add(InlineKeyboardButton("💳 UPI Manual", callback_data="recharge_upi"))
-    markup.add(InlineKeyboardButton("📞 Contact Admin", url="https://t.me/ID_GMS_SELLER_bot"))
+    markup.add(InlineKeyboardButton("📞 Contact Admin", url="https://t.me/rchiex"))
     try:
         bot.send_message(
             chat_id,
@@ -7439,7 +7439,7 @@ def cmd_checkpayment(msg):
     elif status == "expired":
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("🔄 New Payment", callback_data="recharge_fampay_auto"))
-        markup.add(InlineKeyboardButton("📞 Contact Admin", url="https://t.me/ID_GMS_SELLER_bot"))
+        markup.add(InlineKeyboardButton("📞 Contact Admin", url="https://t.me/rchiex"))
         bot.send_message(
             msg.chat.id,
             f"❌ <b>Order Expired</b>\n\n"
