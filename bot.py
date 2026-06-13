@@ -4036,17 +4036,17 @@ def get_usdt_inr_rate() -> float:
 def _fp_api_request(method: str, path: str, extra_params: dict = None):
     """
     Central FamPay API caller.
-    Tries both 'api' and 'api_key' parameter names for compatibility.
-    Returns parsed JSON with a valid order_id/status, or None.
+    CONFIRMED working param name: 'api_key' (not 'api').
+    Tested against legit-fampay-api.vercel.app — api_key works, api returns Invalid API Key.
     """
     base = FAMPAY_BASE_URL.rstrip('/')
     url  = f"{base}{path}"
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
 
-    # Try param name variants — 'api' is used by legit-fampay-api, 'api_key' by some forks
+    # api_key FIRST — confirmed working. 'api' kept as fallback only.
     key_variants = [
-        {"api": FAMPAY_API_KEY},
         {"api_key": FAMPAY_API_KEY},
+        {"api":     FAMPAY_API_KEY},
     ]
     for kv in key_variants:
         qp = dict(kv)
@@ -4054,11 +4054,14 @@ def _fp_api_request(method: str, path: str, extra_params: dict = None):
             qp.update(extra_params)
         try:
             if method.upper() == "GET":
-                resp = requests.get(url, params=qp, headers=headers, timeout=20)
+                resp = requests.get(url, params=qp, headers=headers,
+                                    timeout=20, allow_redirects=True)
             else:
-                resp = requests.post(url, json=qp, headers=headers, timeout=20)
+                resp = requests.post(url, json=qp, headers=headers,
+                                     timeout=20, allow_redirects=True)
 
-            logger.info(f"FamPay [{method} {path} {list(kv.keys())[0]}] → {resp.status_code} | {resp.text[:200]}")
+            logger.info(f"FamPay [{method} {path} param={list(kv.keys())[0]}] "
+                        f"→ {resp.status_code} | {resp.text[:300]}")
 
             if resp.status_code not in (200, 201):
                 continue
@@ -4066,9 +4069,9 @@ def _fp_api_request(method: str, path: str, extra_params: dict = None):
                 data = resp.json()
             except Exception:
                 continue
-            # If API says "error", try next key variant
             if isinstance(data, dict) and data.get("status") == "error":
-                logger.warning(f"FamPay key variant '{list(kv.keys())[0]}' rejected: {data.get('message','')}")
+                logger.warning(f"FamPay param '{list(kv.keys())[0]}' rejected: "
+                               f"{data.get('message','')}")
                 continue
             return data
         except Exception as e:
