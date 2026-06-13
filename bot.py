@@ -4251,33 +4251,37 @@ def fp_reject_and_notify(chat_id: int, user_id: int, order_id: str, amount: floa
         logger.error(f"FamPay reject notify error: {e}")
 
 
-def fp_poll_thread(chat_id: int, user_id: int, order_id: str, amount: float, timeout: int = 300):
+def fp_poll_thread(chat_id: int, user_id: int, order_id: str, amount: float, timeout: int = 480):
     """
-    Background thread: polls API every 6 seconds for up to `timeout` seconds.
+    Background thread: polls /api/verify every 4 seconds for up to timeout seconds.
+    QR expires in 5 min; we poll for 8 min to handle edge cases.
     Credits wallet on success, notifies on expiry/timeout.
     """
     deadline = time.time() + timeout
-    interval = 6
+    interval = 4          # check every 4 seconds — fast detection
+    poll_count = 0
     while time.time() < deadline:
         time.sleep(interval)
+        poll_count += 1
         # Cancelled by user
         if user_id in fampay_cancelled_users:
             fampay_cancelled_users.discard(user_id)
-            logger.info(f"FamPay poll: user {user_id} cancelled")
+            logger.info(f"FamPay poll: user {user_id} cancelled after {poll_count} polls")
             return
-        # Already handled
+        # Already handled (e.g. manual /checkpayment triggered credit)
         if order_id in fampay_approved_orders or order_id in fampay_notified_orders:
             return
         status = fp_check_status(order_id)
+        logger.info(f"FamPay poll #{poll_count} [{order_id}]: {status}")
         if status == "success":
             fp_credit_wallet(chat_id, user_id, order_id, amount)
             return
         elif status == "expired":
             fp_reject_and_notify(chat_id, user_id, order_id, amount, reason="expired")
             return
-        # "pending" or "error" → keep polling
-        logger.debug(f"FamPay poll [{order_id}]: {status} — continuing...")
-    # Timeout
+        # "pending" → keep polling
+    # Timeout reached
+    logger.warning(f"FamPay poll timeout [{order_id}] after {poll_count} polls")
     if order_id not in fampay_approved_orders and order_id not in fampay_notified_orders:
         fp_reject_and_notify(chat_id, user_id, order_id, amount, reason="timed out")
 
@@ -4401,10 +4405,10 @@ def process_fampay_auto_amount(msg):
     except Exception as db_err:
         logger.error(f"FamPay DB pre-save error: {db_err}")
 
-    # Start background polling thread
+    # Start background polling thread (8 min window)
     threading.Thread(
         target=fp_poll_thread,
-        args=(msg.chat.id, user_id, order_id, amount, 300),
+        args=(msg.chat.id, user_id, order_id, amount, 480),
         daemon=True
     ).start()
 
