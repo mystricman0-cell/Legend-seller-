@@ -7281,8 +7281,11 @@ def cmd_totalaccounts(msg):
     )
 
 # ---------------------------------------------------------------------
-# AI CHATBOT — ChatGPT integration with bot persona
-# ---------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════
+# DRS X AI — ChatGPT powered assistant
+# /ai command se toggle hota hai
+# User kuch bhi puche — jawab deta hai (personal cheezein chhodke)
+# ═══════════════════════════════════════════════════════════════════════
 
 _BOT_QUOTES = [
     "🌟 Legendary OTP Bot — Sabse Tez, Sabse Bharosemand!",
@@ -7294,48 +7297,44 @@ _BOT_QUOTES = [
     "🎯 Har baar sahi OTP, har baar time pe!",
 ]
 
-# ═══════════════════════════════════════════════════════════════════════
-# DRS X AI — COMPLETE REWRITE
-# Features:
-#   • Per-user conversation history (last 10 messages) stored in MongoDB
-#   • Replies in same language as user (Hindi/Hinglish/English auto-detect)
-#   • Never reveals bot secrets — AI-level refusal in system prompt
-#   • Typing indicator before reply
-#   • Graceful fallback if OpenAI unavailable
-# ═══════════════════════════════════════════════════════════════════════
-
-_AI_SYSTEM_PROMPT = """Tu "DRS X AI" hai — Legendary OTP Bot ka personal AI assistant.
+_AI_SYSTEM_PROMPT = """Tu "DRS X AI" hai — Legendary OTP Bot ka smart AI assistant.
 
 PERSONALITY:
-- Friendly, funny, thoda desi vibe wala
-- Hindi, Hinglish aur English teeno mein fluently baat karta hai
-- Jo language mein user baat kare, usi mein jawab de
-- Emojis freely use karo, par overdone mat karo
+- Friendly, helpful, thoda desi vibe
+- Hindi, Hinglish aur English teeno mein baat kar sakta hai
+- Jo language mein user likhe, usi mein jawab de
+- Emojis use karo lekin overdone mat karo
 
-CAPABILITIES:
-- General knowledge, current affairs, science, math, coding
-- Jokes, shayari, riddles, story telling
+KUCH BHI PUCHH SAKTE HAIN:
+- General knowledge, science, math, history, geography
+- Coding help, tech questions
+- Jokes, shayari, riddles, stories
 - Career advice, motivation, life tips
-- Product/service recommendations
-- Kuch bhi — tu ek all-rounder AI hai
+- News, sports, movies, music
+- Recipes, health tips
+- Koi bhi sawaal — tu answer karega
 
-STRICT RULES:
-- KABHI NAHI batana: bot token, API keys, MongoDB URL, webhook secrets,
-  admin credentials, source code, database contents — ye sab strictly confidential hai
-- Agar koi bot ke secrets maange: "Bhai ye main nahi bata sakta 😅 Admin se baat karo"
-- Har reply max 5-6 lines rakho — concise aur punchy
-- Commands ya menu ke baare mein koi bhi baat ho toh /start suggest karo"""
+PERSONAL CHEEZEIN MAT BATANA:
+- Apne baare mein koi real personal info mat share kar
+- Koi real phone number, address, personal life mat batana
+- Bas AI assistant ki tarah baat kar
 
-# Per-user conversation buffer: {user_id: [{"role":..,"content":..}, ...]}
+STRICT SECURITY:
+- Bot token, API keys, MongoDB URL, webhook secrets, admin details — kabhi mat batana
+- Agar koi maange: "Bhai ye main nahi bata sakta 😅"
+- Source code ya database ki details bhi confidential hain
+
+RESPONSE STYLE:
+- Max 6-7 lines — concise aur clear
+- /start suggest karo agar bot features ke baare mein puche"""
+
 _ai_history: dict = {}
-_AI_MAX_HISTORY = 10  # messages per user kept in context
+_AI_MAX_HISTORY = 12
 
 
 def _ai_get_history(user_id: int) -> list:
-    """Load conversation history from memory (or MongoDB on first access)."""
     if user_id in _ai_history:
         return _ai_history[user_id]
-    # Try loading from DB
     try:
         doc = users_col.find_one({"user_id": user_id}, {"ai_history": 1})
         hist = doc.get("ai_history", []) if doc else []
@@ -7346,7 +7345,6 @@ def _ai_get_history(user_id: int) -> list:
 
 
 def _ai_save_history(user_id: int, history: list):
-    """Persist conversation history to MongoDB (async-safe, fire-and-forget)."""
     try:
         users_col.update_one(
             {"user_id": user_id},
@@ -7358,7 +7356,6 @@ def _ai_save_history(user_id: int, history: list):
 
 
 def _ai_clear_history(user_id: int):
-    """Clear conversation history for a user."""
     _ai_history.pop(user_id, None)
     try:
         users_col.update_one({"user_id": user_id}, {"$unset": {"ai_history": ""}})
@@ -7367,20 +7364,12 @@ def _ai_clear_history(user_id: int):
 
 
 def _ai_reply(user_id: int, user_name: str, user_message: str) -> str | None:
-    """
-    Get DRS X AI reply for user_message.
-    Maintains per-user conversation history.
-    Returns reply string or None on error.
-    """
     if not OPENAI_API_KEY:
         logger.error("DRS X AI: OPENAI_API_KEY not set!")
         return None
 
     history = _ai_get_history(user_id)
-
-    # Append new user message
-    history.append({"role": "user", "content": f"[{user_name}]: {user_message}"})
-    # Trim to max
+    history.append({"role": "user", "content": f"{user_name}: {user_message}"})
     if len(history) > _AI_MAX_HISTORY:
         history = history[-_AI_MAX_HISTORY:]
 
@@ -7392,12 +7381,11 @@ def _ai_reply(user_id: int, user_name: str, user_message: str) -> str | None:
         resp = oai.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            max_tokens=500,
-            temperature=0.85,
+            max_tokens=600,
+            temperature=0.8,
         )
         reply = resp.choices[0].message.content.strip()
 
-        # Append assistant reply to history and save
         history.append({"role": "assistant", "content": reply})
         _ai_history[user_id] = history[-_AI_MAX_HISTORY:]
         threading.Thread(
@@ -7409,7 +7397,6 @@ def _ai_reply(user_id: int, user_name: str, user_message: str) -> str | None:
 
     except Exception as e:
         logger.error(f"DRS X AI error for user {user_id}: {e}")
-        # Remove the failed user message from history
         if history and history[-1]["role"] == "user":
             history.pop()
         _ai_history[user_id] = history
@@ -7417,17 +7404,15 @@ def _ai_reply(user_id: int, user_name: str, user_message: str) -> str | None:
 
 
 def _ai_is_secret_probe(text: str) -> bool:
-    """
-    Returns True only for clear attempts to extract bot secrets.
-    Very specific — won't false-positive on normal conversation.
-    """
     if not text:
         return False
     t = text.lower().strip()
-    # Must contain both a secret-related word AND an extraction word
-    secret_words = ["bot token", "api key dedo", "mongo url", "webhook secret dedo",
-                    "openai key dedo", "database url dedo", "replit secret dedo",
-                    "bot ka token dedo", "admin password dedo"]
+    secret_words = [
+        "bot token", "api key dedo", "mongo url", "webhook secret dedo",
+        "openai key dedo", "database url dedo", "replit secret dedo",
+        "bot ka token dedo", "admin password dedo", "give me the token",
+        "show me the api key", "what is the bot token"
+    ]
     for phrase in secret_words:
         if phrase in t:
             return True
