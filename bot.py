@@ -6190,12 +6190,25 @@ def show_country_details(user_id, country_name, chat_id, message_id, callback_id
         accounts_count = get_available_accounts_count(country_name)
         bal = get_balance(user_id)
         flag = get_country_flag(country_name)
+        price = country['price']
+
+        # Live USDT equivalent for this account's price
+        usdt_rate = get_usdt_inr_rate()
+        if usdt_rate > 0:
+            price_usdt = price / usdt_rate
+            usdt_price_line = f"💎 <b>Price (USDT):</b> ≈ {price_usdt:.4f} USDT\n"
+            usdt_rate_line  = f"📈 <b>Rate:</b> 1 USDT = ₹{usdt_rate:.2f}\n"
+        else:
+            usdt_price_line = ""
+            usdt_rate_line  = ""
 
         text = (
             f"<blockquote>"
             f"🌍 <b>Country:</b> {country_name} {flag}\n"
             f"📦 <b>Stock:</b> {accounts_count} accounts\n"
-            f"💰 <b>Price:</b> {format_currency(country['price'])}\n"
+            f"💰 <b>Price:</b> {format_currency(price)}\n"
+            f"{usdt_price_line}"
+            f"{usdt_rate_line}"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
             f"✅ ʙᴇsᴛ ꜰᴏʀ ʙᴀɴɴɪɴɢ\n"
             f"📊 ɢᴏᴏᴅ ꜰᴏʀ ʀᴇᴘᴏʀᴛɪɴɢ ᴛᴏᴏʟs\n"
