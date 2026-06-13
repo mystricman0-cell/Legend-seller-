@@ -13,10 +13,12 @@ def has_git_changes():
     return bool(result.stdout.strip())
 
 def run_sync():
+    env = os.environ.copy()
     result = subprocess.run(
         ["bash", "git_sync.sh"],
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
     if result.stdout:
         print(result.stdout.strip(), flush=True)
