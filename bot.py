@@ -1918,10 +1918,11 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 
                 markup = InlineKeyboardMarkup(row_width=2)
                 
-                # Add buttons for both channels
+                # Add premium-style buttons for each missing channel
                 for channel in missing_channels:
+                    label = CHANNEL_BUTTON_LABELS.get(channel, f"📢 Join {channel}")
                     markup.add(InlineKeyboardButton(
-                        f"📢 Join {channel}",
+                        label,
                         url=f"https://t.me/{channel[1:]}"
                     ))
                 
@@ -2598,6 +2599,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 return
             usdt_rate = get_usdt_inr_rate()
             rate_line = f"📈 <b>Live Rate:</b> 1 USDT = ₹{usdt_rate:.2f}\n" if usdt_rate > 0 else ""
+            min_usdt_inr = f"≈ ₹{(0.09 * usdt_rate):.2f}" if usdt_rate > 0 else ""
             crypto_text = (
                 "💎 <b>Crypto Payment (USDT)</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -2611,7 +2613,7 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
                 "1️⃣ Scan QR or copy address above\n"
                 "2️⃣ Send USDT & take screenshot\n"
                 "3️⃣ Send screenshot + TxID to admin\n\n"
-                "⚠️ <i>Min 1 USDT. Wrong network = funds lost!</i>"
+                f"⚠️ <i>Min 0.09 USDT {min_usdt_inr}. Wrong network = funds lost!</i>"
             )
             markup = InlineKeyboardMarkup(row_width=1)
             markup.add(
