@@ -6942,6 +6942,12 @@ def cmd_profile(msg):
         joined = user_data.get("created_at")
         joined_str = joined.strftime("%d %b %Y") if joined else "N/A"
         referrals = user_data.get("referral_count", 0)
+        usdt_rate = get_usdt_inr_rate()
+        if usdt_rate > 0:
+            usdt_val  = bal / usdt_rate
+            usdt_line = f"💎 <b>USDT Value:</b> ≈ {usdt_val:.4f} USDT (@ ₹{usdt_rate:.2f})\n"
+        else:
+            usdt_line = ""
         bot.edit_message_text(
             f"👤 <b>MY PROFILE</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
@@ -6949,6 +6955,7 @@ def cmd_profile(msg):
             f"🆔 <b>ID:</b> <code>{user_id}</code>\n"
             f"📛 <b>Username:</b> @{uname}\n"
             f"💰 <b>Wallet:</b> {format_currency(bal)}\n"
+            f"{usdt_line}"
             f"👥 <b>Referrals:</b> {referrals}\n"
             f"📅 <b>Joined:</b> {joined_str}\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
