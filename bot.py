@@ -4130,64 +4130,35 @@ def _fp_extract_order(raw: dict):
 
 def fp_check_status(order_id: str):
     """
-    Poll payment status. Returns "success" / "pending" / "expired" / "error".
-    Tries multiple endpoint paths with both 'api' and 'api_key' variants.
+    Poll payment status. Returns "success" / "pending" / "expired".
 
-    BUG FIX: The outer `status` field is the API call status ("success"/"error"),
-    NOT the payment status. Payment status lives inside `data.payment_status`,
-    `data.transaction_status`, or `data.status`.
-    We must NOT confuse the two.
+    CONFIRMED: Only /api/verify with api_key param works on legit-fampay-api.
+    Response format:
+      pending → {"status":"pending","message":"Payment not received yet.","order_id":"...","expires_in_ms":N}
+      success → {"status":"success","message":"Payment received!","order_id":"...","amount":N}
+      expired → {"status":"expired", ...}
     """
-    # Words that mean "payment done"
-    _PAID = {"success", "paid", "completed", "credited", "done",
-             "approved", "settled", "confirmed"}
-    # Words that mean "still waiting"
-    _WAITING = {"pending", "processing", "initiated", "created",
-                "waiting", "inprogress", "in_progress", "unpaid"}
-    # Words that mean "failed / gone"
-    _DEAD = {"expired", "failed", "cancelled", "canceled",
-             "rejected", "refunded", "timeout", "timed_out"}
+    _PAID    = {"success", "paid", "completed", "credited", "done",
+                "approved", "settled", "confirmed"}
+    _DEAD    = {"expired", "failed", "cancelled", "canceled",
+                "rejected", "refunded", "timeout", "timed_out"}
 
-    paths = ["/api/verify", "/api/status", "/api/check",
-             "/api/payment/status", "/api/order/status"]
+    raw = _fp_api_request("GET", "/api/verify", extra_params={"order_id": order_id})
+    if not isinstance(raw, dict):
+        logger.warning(f"FamPay verify: no response for order {order_id} — keep polling")
+        return "pending"
 
-    for path in paths:
-        raw = _fp_api_request("GET", path, extra_params={"order_id": order_id})
-        if not isinstance(raw, dict):
-            continue
+    # Response is flat (no nested data block): {"status":"...","message":"...","order_id":"..."}
+    status = str(raw.get("status") or "").strip().lower()
+    logger.info(f"FamPay verify order={order_id} status={status!r} "
+                f"msg={raw.get('message','')!r} expires_in_ms={raw.get('expires_in_ms','')}")
 
-        # Unwrap nested "data" block if present
-        inner = raw.get("data") if isinstance(raw.get("data"), dict) else None
-
-        # Collect all candidate status strings — prefer inner block fields
-        candidates = []
-        if inner:
-            for field in ("payment_status", "transaction_status",
-                          "txn_status", "status", "state"):
-                v = inner.get(field)
-                if v and isinstance(v, str):
-                    candidates.append(v.strip().lower())
-        # Also check top-level fields (but skip if it's just the API wrapper "success")
-        # Only include top-level status if inner block was absent
-        if not inner:
-            for field in ("payment_status", "transaction_status",
-                          "txn_status", "status", "state"):
-                v = raw.get(field)
-                if v and isinstance(v, str):
-                    candidates.append(v.strip().lower())
-
-        logger.info(f"FamPay status [{path}] order={order_id} candidates={candidates}")
-
-        for c in candidates:
-            if c in _PAID:
-                return "success"
-            if c in _DEAD:
-                return "expired"
-            if c in _WAITING:
-                return "pending"
-
-    logger.warning(f"FamPay: no valid payment status for order {order_id}")
-    return "pending"   # default: keep polling rather than giving up early
+    if status in _PAID:
+        return "success"
+    if status in _DEAD:
+        return "expired"
+    # "pending" or anything else → keep polling
+    return "pending"
 
 
 def fp_credit_wallet(chat_id: int, user_id: int, order_id: str, amount: float):
