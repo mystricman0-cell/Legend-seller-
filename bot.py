@@ -4523,7 +4523,11 @@ def _fp_webhook_handler():
             sig = flask_request.headers.get("X-Webhook-Signature", "")
             expected = hmac.new(
                 FAMPAY_WEBHOOK_SECRET.encode(),
-                raw_body.encode(),
+                raw_body.encode() if isinstance(raw_body, str) else raw_body,
+                hashlib.sha256
+            ).hexdigest() if hasattr(hmac, 'new') else hmac.HMAC(
+                FAMPAY_WEBHOOK_SECRET.encode(),
+                raw_body.encode() if isinstance(raw_body, str) else raw_body,
                 hashlib.sha256
             ).hexdigest()
             if sig and sig != expected:
@@ -7698,56 +7702,15 @@ def telegram_webhook():
 def health():
     return "GMS Bot is running via webhook ✅", 200
 
-@flask_app.route("/webhook/payment", methods=["POST"])
+@flask_app.route("/fampay/webhook", methods=["POST"])
 def fampay_payment_webhook():
-    """FamPay webhook — instantly confirm a payment order"""
-    try:
-        data = flask_request.get_json(force=True) or {}
-        secret = data.get("webhook_secret", "")
-        if FAMPAY_WEBHOOK_SECRET and secret != FAMPAY_WEBHOOK_SECRET:
-            abort(403)
-        order_id = data.get("order_id", "")
-        amount = float(data.get("amount", 0))
-        utr = data.get("utr", "")
-        sender = data.get("sender_name", "")
-        if not order_id or amount <= 0:
-            return {"error": "invalid data"}, 400
-        # Find pending fampay order in DB
-        existing = recharges_col.find_one({"order_id": order_id})
-        if existing and existing.get("status") == "approved":
-            return {"status": "already_processed"}, 200
-        # Find which user owns this order (stored in upi_payment_states or recharges)
-        rec = recharges_col.find_one({"order_id": order_id})
-        if rec:
-            user_id = rec["user_id"]
-            add_balance(user_id, amount)
-            recharges_col.update_one({"order_id": order_id}, {"$set": {
-                "status": "approved", "utr": utr,
-                "processed_at": datetime.utcnow(), "sender_name": sender,
-                "auto_approved": True
-            }})
-            new_bal = get_balance(user_id)
-            try:
-                bot.send_message(
-                    user_id,
-                    f"✅ <b>FamPay Payment Confirmed!</b>\n\n"
-                    f"💰 <b>Amount:</b> {format_currency(amount)}\n"
-                    f"🔢 <b>UTR:</b> <code>{utr}</code>\n"
-                    f"👤 <b>Sender:</b> {sender}\n"
-                    f"💳 <b>New Balance:</b> {format_currency(new_bal)}\n\n"
-                    f"🎉 Auto-credited!",
-                    parse_mode="HTML"
-                )
-            except:
-                pass
-            try:
-                log_recharge_approved_async(user_id=user_id, amount=amount, method="FamPay Auto", utr=utr)
-            except:
-                pass
-        return {"status": "ok"}, 200
-    except Exception as e:
-        logger.error(f"FamPay webhook error: {e}")
-        return {"error": str(e)}, 500
+    """FamPay server-push webhook — instant payment confirmation"""
+    return _fp_webhook_handler()
+
+# Also accept old path for backwards compatibility
+@flask_app.route("/webhook/payment", methods=["POST"])
+def fampay_payment_webhook_legacy():
+    return _fp_webhook_handler()
 
 # ---------------------------------------------------------------------
 # RUN BOT
