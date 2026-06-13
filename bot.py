@@ -4128,22 +4128,27 @@ def get_usdt_inr_rate() -> float:
 #       Webhook endpoint also handles instant server-push confirmation
 # ═══════════════════════════════════════════════════════════════════════
 
-def _fp_api_request(method: str, path: str, extra_params: dict = None):
+def _fp_api_request(method: str, path: str, extra_params: dict = None,
+                    key_param: str = None):
     """
     Central FamPay API caller.
-    CONFIRMED working param name: 'api_key' (not 'api').
-    Tested against legit-fampay-api.vercel.app — api_key works, api returns Invalid API Key.
+    CONFIRMED endpoint→param mapping (tested live):
+      /api/qr     → 'api'     param works
+      /api/verify → 'api_key' param works
+    Pass key_param to skip the fallback loop and use the correct param directly.
     """
     base = FAMPAY_BASE_URL.rstrip('/')
     url  = f"{base}{path}"
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
 
-    # api_key FIRST — confirmed working. 'api' kept as fallback only.
-    key_variants = [
-        {"api_key": FAMPAY_API_KEY},
-        {"api":     FAMPAY_API_KEY},
-    ]
-    for kv in key_variants:
+    # If caller knows the correct param, use it directly (no wasted retry)
+    if key_param:
+        variants = [{key_param: FAMPAY_API_KEY}]
+    else:
+        # Generic fallback: try api first, then api_key
+        variants = [{"api": FAMPAY_API_KEY}, {"api_key": FAMPAY_API_KEY}]
+
+    for kv in variants:
         qp = dict(kv)
         if extra_params:
             qp.update(extra_params)
@@ -4183,17 +4188,17 @@ def fp_generate_order(amount: float):
     amt_int = int(amount)
     base    = FAMPAY_BASE_URL.rstrip('/')
 
-    # Known working endpoints in priority order (only /api/qr exists on legit-fampay-api)
+    # CONFIRMED: /api/qr with 'api' param works on legit-fampay-api
     attempts = [
-        ("GET",  "/api/qr",       {"amount": amt_int}),
-        ("GET",  "/api/generate", {"amount": amt_int}),
-        ("GET",  "/api/create",   {"amount": amt_int}),
-        ("POST", "/api/qr",       {"amount": amt_int}),
-        ("POST", "/api/generate", {"amount": amt_int}),
+        ("GET",  "/api/qr",       {"amount": amt_int}, "api"),
+        ("GET",  "/api/generate", {"amount": amt_int}, None),
+        ("GET",  "/api/create",   {"amount": amt_int}, None),
+        ("POST", "/api/qr",       {"amount": amt_int}, "api"),
+        ("POST", "/api/generate", {"amount": amt_int}, None),
     ]
 
-    for method, path, extra in attempts:
-        raw = _fp_api_request(method, path, extra_params=extra)
+    for method, path, extra, kp in attempts:
+        raw = _fp_api_request(method, path, extra_params=extra, key_param=kp)
         if not raw:
             continue
         order = _fp_extract_order(raw)
@@ -4238,7 +4243,9 @@ def fp_check_status(order_id: str):
     _DEAD    = {"expired", "failed", "cancelled", "canceled",
                 "rejected", "refunded", "timeout", "timed_out"}
 
-    raw = _fp_api_request("GET", "/api/verify", extra_params={"order_id": order_id})
+    # CONFIRMED: /api/verify with 'api_key' param works on legit-fampay-api
+    raw = _fp_api_request("GET", "/api/verify",
+                          extra_params={"order_id": order_id}, key_param="api_key")
     if not isinstance(raw, dict):
         logger.warning(f"FamPay verify: no response for order {order_id} — keep polling")
         return "pending"
