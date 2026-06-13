@@ -1,11 +1,24 @@
 #!/bin/bash
+# Git sync — handles Replit's own git lock file conflicts
 
 if [ -z "$GITHUB_TOKEN" ]; then
     echo "[git_sync] ERROR: GITHUB_TOKEN is not set."
     exit 1
 fi
 
-# Remove stale git lock files left by Replit's own git agent
+# ── Wait for any Replit-owned git locks to clear (up to 30s) ──────────
+LOCK_WAIT=0
+while [ -f .git/index.lock ] || [ -f .git/config.lock ]; do
+    if [ $LOCK_WAIT -ge 30 ]; then
+        echo "[git_sync] Lock files still present after 30s — force removing"
+        rm -f .git/index.lock .git/config.lock .git/HEAD.lock \
+               .git/refs/heads/main.lock .git/packed-refs.lock 2>/dev/null
+        break
+    fi
+    sleep 1
+    LOCK_WAIT=$((LOCK_WAIT + 1))
+done
+# Final cleanup just in case
 rm -f .git/index.lock .git/config.lock .git/HEAD.lock \
        .git/refs/heads/main.lock .git/packed-refs.lock 2>/dev/null
 
@@ -23,7 +36,13 @@ restore_remote() {
 }
 trap restore_remote EXIT
 
-git remote set-url origin "$AUTH_URL"
+# Retry remote set-url up to 5 times if it fails due to lock
+for i in 1 2 3 4 5; do
+    git remote set-url origin "$AUTH_URL" 2>/dev/null && break
+    sleep 2
+    rm -f .git/config.lock 2>/dev/null
+done
+
 git add -A
 
 if git diff --cached --quiet; then
@@ -35,7 +54,7 @@ TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 git commit -m "Auto-sync: $TIMESTAMP"
 
 if git push origin main 2>&1; then
-    echo "[git_sync] Pushed to GitHub at $TIMESTAMP"
+    echo "[git_sync] ✅ Pushed to GitHub at $TIMESTAMP"
     exit 0
 fi
 
@@ -50,4 +69,4 @@ git checkout main 2>/dev/null || git checkout -b main
 git branch -D "$TMPBRANCH" 2>/dev/null || true
 git reset --hard origin/main 2>/dev/null || true
 
-echo "[git_sync] Fresh push done at $TIMESTAMP"
+echo "[git_sync] ✅ Fresh push done at $TIMESTAMP"
