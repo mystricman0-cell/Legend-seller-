@@ -4054,19 +4054,15 @@ def _fp_extract_order(raw: dict):
 def fp_check_status(order_id: str):
     """
     Poll payment status. Returns "success" / "pending" / "expired" / "error".
-    Tries multiple endpoint paths.
+    Tries multiple endpoint paths with both 'api' and 'api_key' variants.
     """
-    paths = [
-        f"/api/verify?order_id={order_id}",
-        f"/api/status?order_id={order_id}",
-        f"/api/check?order_id={order_id}",
-    ]
+    paths = ["/api/verify", "/api/status", "/api/check"]
     for path in paths:
-        raw = _fp_api_request("GET", path)
+        raw = _fp_api_request("GET", path, extra_params={"order_id": order_id})
         if not raw:
             continue
         # Unwrap nested data if present
-        data = raw.get("data", raw)
+        data = raw.get("data", raw) if isinstance(raw, dict) else raw
         status = (data.get("status") or raw.get("status") or "").lower()
         if status in ("success", "pending", "expired"):
             logger.info(f"FamPay status [{path}]: {status}")
