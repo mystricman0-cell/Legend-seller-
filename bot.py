@@ -3959,76 +3959,77 @@ def get_usdt_inr_rate() -> float:
 #       Webhook endpoint also handles instant server-push confirmation
 # ═══════════════════════════════════════════════════════════════════════
 
-def _fp_api_request(method: str, path: str, params: dict = None, json_body: dict = None):
+def _fp_api_request(method: str, path: str, extra_params: dict = None):
     """
     Central FamPay API caller.
-    Injects api_key + webhook_secret into every request.
-    Returns parsed JSON or None on failure.
+    Tries both 'api' and 'api_key' parameter names for compatibility.
+    Returns parsed JSON with a valid order_id/status, or None.
     """
     base = FAMPAY_BASE_URL.rstrip('/')
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "X-Api-Key": FAMPAY_API_KEY,
-        "X-Webhook-Secret": FAMPAY_WEBHOOK_SECRET,
-    }
-    # Always include credentials in query params too (some APIs need both)
-    qp = {"api_key": FAMPAY_API_KEY, "webhook_secret": FAMPAY_WEBHOOK_SECRET}
-    if params:
-        qp.update(params)
-    url = f"{base}{path}"
-    try:
-        if method.upper() == "GET":
-            resp = requests.get(url, params=qp, headers=headers, timeout=20)
-        else:
-            body = {"api_key": FAMPAY_API_KEY, "webhook_secret": FAMPAY_WEBHOOK_SECRET}
-            if json_body:
-                body.update(json_body)
-            resp = requests.post(url, params=qp, json=body, headers=headers, timeout=20)
-        logger.info(f"FamPay [{method} {path}] → {resp.status_code} | {resp.text[:300]}")
-        if resp.status_code in (200, 201):
-            return resp.json()
-        return None
-    except Exception as e:
-        logger.error(f"FamPay API error [{method} {path}]: {e}")
-        return None
+    url  = f"{base}{path}"
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+
+    # Try param name variants — 'api' is used by legit-fampay-api, 'api_key' by some forks
+    key_variants = [
+        {"api": FAMPAY_API_KEY},
+        {"api_key": FAMPAY_API_KEY},
+    ]
+    for kv in key_variants:
+        qp = dict(kv)
+        if extra_params:
+            qp.update(extra_params)
+        try:
+            if method.upper() == "GET":
+                resp = requests.get(url, params=qp, headers=headers, timeout=20)
+            else:
+                resp = requests.post(url, json=qp, headers=headers, timeout=20)
+
+            logger.info(f"FamPay [{method} {path} {list(kv.keys())[0]}] → {resp.status_code} | {resp.text[:200]}")
+
+            if resp.status_code not in (200, 201):
+                continue
+            try:
+                data = resp.json()
+            except Exception:
+                continue
+            # If API says "error", try next key variant
+            if isinstance(data, dict) and data.get("status") == "error":
+                logger.warning(f"FamPay key variant '{list(kv.keys())[0]}' rejected: {data.get('message','')}")
+                continue
+            return data
+        except Exception as e:
+            logger.warning(f"FamPay request error [{method} {url}]: {e}")
+            continue
+    return None
 
 
 def fp_generate_order(amount: float):
     """
-    Create a new payment order. Returns dict with order_id + qr_url, or None.
-    Tries multiple endpoint paths used by different API versions.
+    Create a new FamPay payment order.
+    Returns dict with order_id + qr_url, or None on failure.
     """
     amt_int = int(amount)
-    paths_get = [
-        f"/api/qr?amount={amt_int}",
-        f"/api/generate?amount={amt_int}",
-        f"/api/create?amount={amt_int}",
+    base    = FAMPAY_BASE_URL.rstrip('/')
+
+    # Known working endpoints in priority order (only /api/qr exists on legit-fampay-api)
+    attempts = [
+        ("GET",  "/api/qr",       {"amount": amt_int}),
+        ("GET",  "/api/generate", {"amount": amt_int}),
+        ("GET",  "/api/create",   {"amount": amt_int}),
+        ("POST", "/api/qr",       {"amount": amt_int}),
+        ("POST", "/api/generate", {"amount": amt_int}),
     ]
-    paths_post = [
-        ("/api/qr",       {"amount": amt_int}),
-        ("/api/generate", {"amount": amt_int}),
-        ("/api/create",   {"amount": amt_int}),
-    ]
-    # Try GET endpoints first
-    for path in paths_get:
-        raw = _fp_api_request("GET", path)
+
+    for method, path, extra in attempts:
+        raw = _fp_api_request(method, path, extra_params=extra)
         if not raw:
             continue
         order = _fp_extract_order(raw)
         if order:
-            logger.info(f"FamPay order created (GET {path}): {order}")
+            logger.info(f"FamPay order created [{method} {path}]: {order}")
             return order
-    # Then POST
-    for path, body in paths_post:
-        raw = _fp_api_request("POST", path, json_body=body)
-        if not raw:
-            continue
-        order = _fp_extract_order(raw)
-        if order:
-            logger.info(f"FamPay order created (POST {path}): {order}")
-            return order
-    logger.error("FamPay: all generate endpoints failed")
+
+    logger.error(f"FamPay fp_generate_order: all attempts failed for amount={amt_int}")
     return None
 
 
