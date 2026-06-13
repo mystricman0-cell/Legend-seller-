@@ -547,6 +547,12 @@ fampay_approved_orders = set() # Orders already credited (prevent double-credit)
 fampay_notified_orders = set() # Orders already sent final msg (prevent double-notify)
 fampay_cancelled_users = set() # Users who cancelled — stops poll thread
 ai_mode_users = set()  # Users with DRS X AI mode enabled
+try:
+    ai_mode_users = set(
+        doc["user_id"] for doc in users_col.find({"ai_mode": True}, {"user_id": 1})
+    )
+except Exception:
+    pass  # MongoDB not ready yet; will reload later
 admin_add_state = {}  # For /addadmin flow
 admin_remove_state = {}  # For /removeadmin flow
 
@@ -2150,9 +2156,15 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
         elif data == "toggle_ai_mode":
             if user_id in ai_mode_users:
                 ai_mode_users.discard(user_id)
+                try:
+                    users_col.update_one({"user_id": user_id}, {"$set": {"ai_mode": False}}, upsert=True)
+                except Exception: pass
                 bot.answer_callback_query(call.id, "🤖 DRS X AI Mode OFF kar diya gaya!", show_alert=False)
             else:
                 ai_mode_users.add(user_id)
+                try:
+                    users_col.update_one({"user_id": user_id}, {"$set": {"ai_mode": True}}, upsert=True)
+                except Exception: pass
                 bot.answer_callback_query(call.id, "🤖 DRS X AI Mode ON! Ab kuch bhi puchho!", show_alert=False)
             try:
                 bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -3991,16 +4003,27 @@ def fampay_generate_qr(amount: float):
         return None
 
 def fampay_verify_payment(order_id: str):
-    """Check payment status for a FamPay order
-    Response: {"status":"pending/success/expired","order_id":"...","expires_in_ms":...}
-    """
-    try:
-        url = f"{FAMPAY_BASE_URL.rstrip('/')}/api/verify?api_key={FAMPAY_API_KEY}&order_id={order_id}"
-        resp = requests.get(url, timeout=15)
-        return resp.json()  # flat: status is top-level
-    except Exception as e:
-        logger.error(f"FamPay verify error: {e}")
-        return None
+    """Check payment status for a FamPay order — tries multiple endpoint formats"""
+    base = FAMPAY_BASE_URL.rstrip('/')
+    endpoints = [
+        f"{base}/api/verify?api_key={FAMPAY_API_KEY}&order_id={order_id}",
+        f"{base}/api/verify?api={FAMPAY_API_KEY}&order_id={order_id}",
+        f"{base}/api/status?api_key={FAMPAY_API_KEY}&order_id={order_id}",
+        f"{base}/api/check?api_key={FAMPAY_API_KEY}&order_id={order_id}",
+    ]
+    for url in endpoints:
+        try:
+            resp = requests.get(url, timeout=15)
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                logger.info(f"FamPay verify [{url.split('?')[0].split('/')[-1]}] → {data}")
+                if data.get("status") in ("success", "pending", "expired"):
+                    return data
+        except Exception as e:
+            logger.warning(f"FamPay verify endpoint failed ({url}): {e}")
+            continue
+    logger.error(f"FamPay verify: all endpoints failed for order {order_id}")
+    return None
 
 def fampay_credit_and_notify(chat_id: int, user_id: int, order_id: str, amount: float, utr: str = ""):
     """Credit balance and notify user — called by both poll and UTR handler"""
@@ -6906,10 +6929,16 @@ def cmd_ai_toggle(msg):
     user_id = msg.from_user.id
     if user_id in ai_mode_users:
         ai_mode_users.discard(user_id)
+        try:
+            users_col.update_one({"user_id": user_id}, {"$set": {"ai_mode": False}}, upsert=True)
+        except Exception: pass
         status = "🔴 <b>OFF</b>"
         tip = "Ab normal bot mode mein ho.\nMenu se kaam karo ya dobara /ai likho ON karne ke liye."
     else:
         ai_mode_users.add(user_id)
+        try:
+            users_col.update_one({"user_id": user_id}, {"$set": {"ai_mode": True}}, upsert=True)
+        except Exception: pass
         status = "🟢 <b>ON</b>"
         tip = "Ab kuch bhi puchho — AI jawab dega!\nGeneral knowledge, coding, jokes — sab kuch!"
     frames = [
@@ -7306,15 +7335,14 @@ _BOT_QUOTES = [
 ]
 
 _SECURITY_KEYWORDS = [
-    "bot token", "bot ka token", "telegram token",
-    "api key", "apikey", "api_key",
-    "bot secret", "bot ka secret", "webhook secret",
-    "mongo url", "mongodb url", "database url", "db url",
-    "admin password", "bot password", "bot ka password",
-    "source code", "bot config", "private key",
-    "fampay key", "openai key", "chatgpt key",
-    "api id", "api hash",
-    "replit secret", "env variable", "environment variable",
+    "bot token", "bot ka token", "telegram token send",
+    "apikey dedo", "api_key dedo", "apna api key",
+    "bot secret dedo", "webhook secret",
+    "mongo url dedo", "mongodb url dedo", "database url dedo",
+    "admin password dedo", "bot password dedo",
+    "fampay key dedo", "openai key dedo", "chatgpt key dedo",
+    "apna token", "bot ka token dedo",
+    "replit secret dedo",
 ]
 
 def _is_security_suspicious(text: str) -> bool:
