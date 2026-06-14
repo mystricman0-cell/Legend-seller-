@@ -7973,7 +7973,7 @@ def telegram_webhook():
 
 @flask_app.route("/", methods=["GET"])
 def health():
-    return "GMS Bot is running via webhook ✅", 200
+    return "DRS", 200
 
 @flask_app.route("/fampay/webhook", methods=["GET", "POST"])
 def fampay_payment_webhook():
