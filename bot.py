@@ -632,6 +632,8 @@ try:
     transactions_col = db['transactions']
     coupons_col = db['coupons']
     admins_col = db['admins']  # New collection for multiple admins
+    referral_tasks_col = db['referral_tasks']  # 25-referral reward tasks
+    bot_config_col   = db['bot_config']         # Global toggles/settings
     logger.info("✅ MongoDB connected successfully")
 except Exception as e:
     logger.error(f"❌ MongoDB connection failed: {e}")
@@ -1146,6 +1148,108 @@ def handle_remove_admin_userid(msg):
         del admin_remove_state[user_id]
 
 # ---------------------------------------------------------------------
+# REFERRAL TASK SYSTEM — 25 referrals = ₹17 reward (admin-approved)
+# ---------------------------------------------------------------------
+
+def get_referral_task_enabled():
+    """Read ON/OFF toggle from DB (default ON)."""
+    try:
+        cfg = bot_config_col.find_one({"key": "referral_task_enabled"})
+        return cfg.get("value", True) if cfg else True
+    except Exception:
+        return True
+
+def set_referral_task_enabled(value: bool):
+    """Persist ON/OFF toggle to DB."""
+    try:
+        bot_config_col.update_one(
+            {"key": "referral_task_enabled"},
+            {"$set": {"value": value, "updated_at": datetime.utcnow()}},
+            upsert=True
+        )
+    except Exception as e:
+        logger.error(f"set_referral_task_enabled error: {e}")
+
+REFERRAL_TASK_MILESTONE = 25
+REFERRAL_TASK_REWARD    = 17.0
+
+def _check_referral_task_milestone(referrer_id):
+    """
+    Called in a background thread after every new referral.
+    If referrer now has ≥25 referrals and hasn't claimed yet,
+    notify user + send approval request to admin.
+    """
+    try:
+        if not get_referral_task_enabled():
+            return
+
+        user = users_col.find_one({"user_id": referrer_id})
+        if not user:
+            return
+
+        total = user.get("total_referrals", 0)
+        if total < REFERRAL_TASK_MILESTONE:
+            return
+
+        # Idempotent — only one pending/approved task per user per milestone
+        existing = referral_tasks_col.find_one({
+            "user_id": referrer_id,
+            "milestone": REFERRAL_TASK_MILESTONE
+        })
+        if existing:
+            return
+
+        referral_tasks_col.insert_one({
+            "user_id":    referrer_id,
+            "milestone":  REFERRAL_TASK_MILESTONE,
+            "reward":     REFERRAL_TASK_REWARD,
+            "status":     "pending",
+            "created_at": datetime.utcnow()
+        })
+
+        name     = user.get("name", "User")
+        username = user.get("username", "")
+        uname_str = f"@{username}" if username else f"ID: {referrer_id}"
+
+        # Notify the user
+        try:
+            bot.send_message(
+                referrer_id,
+                "🎉 <b>Badhai Ho! 25 Referrals Complete!</b>\n\n"
+                f"✅ Aapne <b>{REFERRAL_TASK_MILESTONE} successful referrals</b> kar liye!\n"
+                f"💰 <b>₹{int(REFERRAL_TASK_REWARD)} reward</b> admin ke paas approve ke liye bhej diya gaya.\n\n"
+                "⏳ Admin approve karte hi aapke wallet mein turant credit ho jayega.\n"
+                "Referral karte raho — aur milegi bhi! 🚀",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+        # Notify admin with approve / reject buttons
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton(f"✅ Approve ₹{int(REFERRAL_TASK_REWARD)}", callback_data=f"reftask_approve_{referrer_id}"),
+            InlineKeyboardButton("❌ Reject",                                 callback_data=f"reftask_reject_{referrer_id}")
+        )
+        try:
+            bot.send_message(
+                ADMIN_ID,
+                f"🔔 <b>Referral Task Complete!</b>\n\n"
+                f"👤 <b>User:</b> {name} ({uname_str})\n"
+                f"🆔 <b>ID:</b> <code>{referrer_id}</code>\n"
+                f"👥 <b>Referrals:</b> {total}\n"
+                f"💰 <b>Reward:</b> ₹{int(REFERRAL_TASK_REWARD)}\n\n"
+                f"Approve karo toh user ke wallet mein ₹{int(REFERRAL_TASK_REWARD)} credit hoga.",
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+        except Exception as e:
+            logger.error(f"Admin referral task notify error: {e}")
+
+    except Exception as e:
+        logger.error(f"_check_referral_task_milestone error: {e}")
+
+# ---------------------------------------------------------------------
 # UTILITY FUNCTIONS - UPDATED FOR TWO CHANNELS
 # ---------------------------------------------------------------------
 
@@ -1186,6 +1290,12 @@ def ensure_user_exists(user_id, user_name=None, username=None, referred_by=None)
                 {"$inc": {"total_referrals": 1}}
             )
             logger.info(f"Referral recorded: {referred_by} -> {user_id}")
+            # Check if referrer hit the 25-referral milestone
+            threading.Thread(
+                target=_check_referral_task_milestone,
+                args=(referred_by,),
+                daemon=True
+            ).start()
 
     wallets_col.update_one(
         {"user_id": user_id},
@@ -2441,7 +2551,91 @@ Click the buttons below to join both channels, then press VERIFY ✅"""
         elif data.startswith("logout_session_"):
             session_id = data.split("_", 2)[2]
             handle_logout_session(user_id, session_id, call.message.chat.id, call.id)
-        
+
+        elif data.startswith("reftask_approve_"):
+            if not is_admin(user_id):
+                bot.answer_callback_query(call.id, "❌ Unauthorized", show_alert=True)
+                return
+            try:
+                target_uid = int(data.split("_")[-1])
+            except Exception:
+                bot.answer_callback_query(call.id, "❌ Invalid user ID", show_alert=True)
+                return
+            task = referral_tasks_col.find_one({"user_id": target_uid, "milestone": REFERRAL_TASK_MILESTONE})
+            if not task:
+                bot.answer_callback_query(call.id, "❌ Task not found", show_alert=True)
+                return
+            if task.get("status") == "approved":
+                bot.answer_callback_query(call.id, "⚠️ Already approved", show_alert=True)
+                return
+            referral_tasks_col.update_one(
+                {"user_id": target_uid, "milestone": REFERRAL_TASK_MILESTONE},
+                {"$set": {"status": "approved", "approved_by": user_id, "approved_at": datetime.utcnow()}}
+            )
+            add_balance(target_uid, REFERRAL_TASK_REWARD)
+            new_bal = get_balance(target_uid)
+            try:
+                bot.send_message(
+                    target_uid,
+                    f"✅ <b>Referral Reward Credited!</b>\n\n"
+                    f"🎉 Admin ne aapka 25-referral reward approve kar diya!\n"
+                    f"💰 <b>₹{int(REFERRAL_TASK_REWARD)}</b> aapke wallet mein add ho gaya!\n"
+                    f"💳 <b>New Balance:</b> {format_currency(new_bal)}\n\n"
+                    f"Referral karte raho aur aur rewards pao! 🚀",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            try:
+                bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+                bot.edit_message_text(
+                    call.message.text + f"\n\n✅ <b>APPROVED by admin</b>",
+                    call.message.chat.id, call.message.message_id, parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            bot.answer_callback_query(call.id, f"✅ ₹{int(REFERRAL_TASK_REWARD)} credited to user {target_uid}", show_alert=True)
+
+        elif data.startswith("reftask_reject_"):
+            if not is_admin(user_id):
+                bot.answer_callback_query(call.id, "❌ Unauthorized", show_alert=True)
+                return
+            try:
+                target_uid = int(data.split("_")[-1])
+            except Exception:
+                bot.answer_callback_query(call.id, "❌ Invalid user ID", show_alert=True)
+                return
+            task = referral_tasks_col.find_one({"user_id": target_uid, "milestone": REFERRAL_TASK_MILESTONE})
+            if not task:
+                bot.answer_callback_query(call.id, "❌ Task not found", show_alert=True)
+                return
+            if task.get("status") in ("rejected", "approved"):
+                bot.answer_callback_query(call.id, f"⚠️ Already {task['status']}", show_alert=True)
+                return
+            referral_tasks_col.update_one(
+                {"user_id": target_uid, "milestone": REFERRAL_TASK_MILESTONE},
+                {"$set": {"status": "rejected", "rejected_by": user_id, "rejected_at": datetime.utcnow()}}
+            )
+            try:
+                bot.send_message(
+                    target_uid,
+                    "❌ <b>Referral Reward Rejected</b>\n\n"
+                    "Admin ne aapka 25-referral reward reject kar diya.\n"
+                    "Koi issue ho toh /support se contact karein.",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            try:
+                bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+                bot.edit_message_text(
+                    call.message.text + "\n\n❌ <b>REJECTED by admin</b>",
+                    call.message.chat.id, call.message.message_id, parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            bot.answer_callback_query(call.id, f"❌ Reward rejected for user {target_uid}", show_alert=True)
+
         elif data.startswith("get_otp_"):
             if not has_user_joined_channels(user_id):
                 missing_channels = get_missing_channels(user_id)
@@ -6835,6 +7029,38 @@ def cancel_command(msg):
     # ── Back to main menu ─────────────────────────────────────────────
     clean_ui_and_send_menu(chat_id, user_id)
 
+@bot.message_handler(commands=['referraltask'])
+def cmd_referraltask(msg):
+    if not is_super_admin(msg.from_user.id):
+        bot.reply_to(msg, "❌ Sirf super admin use kar sakta hai.")
+        return
+    parts = msg.text.strip().split()
+    if len(parts) < 2 or parts[1].lower() not in ('on', 'off'):
+        current = get_referral_task_enabled()
+        status_str = "🟢 <b>ON (Active)</b>" if current else "🔴 <b>OFF (Paused)</b>"
+        bot.send_message(
+            msg.chat.id,
+            f"⚙️ <b>Referral Task System</b>\n\n"
+            f"Status: {status_str}\n\n"
+            f"<b>Rule:</b> {REFERRAL_TASK_MILESTONE} referrals → ₹{int(REFERRAL_TASK_REWARD)} reward (admin approved)\n\n"
+            f"<b>Toggle:</b>\n"
+            f"/referraltask on  — Enable\n"
+            f"/referraltask off — Disable",
+            parse_mode="HTML"
+        )
+        return
+    enable = parts[1].lower() == 'on'
+    set_referral_task_enabled(enable)
+    status_str = "🟢 ON — Active" if enable else "🔴 OFF — Paused"
+    bot.send_message(
+        msg.chat.id,
+        f"✅ <b>Referral Task System: {status_str}</b>\n\n"
+        + (f"Users ab {REFERRAL_TASK_MILESTONE} referrals pe ₹{int(REFERRAL_TASK_REWARD)} reward earn kar sakte hain."
+           if enable else
+           "Referral task rewards temporarily band kar diye gaye hain."),
+        parse_mode="HTML"
+    )
+
 @bot.message_handler(commands=['restart'])
 def restart_bot(message):
     user_id = message.from_user.id
@@ -8153,6 +8379,7 @@ if __name__ == "__main__":
             BotCommand("cleanempty",       "🗑️ 0-stock countries remove karo"),
             BotCommand("clean",            "🧹 MongoDB junk clean karo"),
             BotCommand("cleanmongo",       "🧹 MongoDB cleanup"),
+            BotCommand("referraltask",     "🎯 25-referral reward toggle (admin)"),
             BotCommand("restart",          "♻️ Bot restart karo"),
         ]
         bot.set_my_commands(user_cmds)
