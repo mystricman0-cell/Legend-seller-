@@ -1829,6 +1829,13 @@ def start(msg):
     # Check if user has joined BOTH channels
     if not has_user_joined_channels(user_id):
         missing_channels = get_missing_channels(user_id)
+
+        # Save referral code so it isn't lost after join verification
+        if len(msg.text.split()) > 1:
+            ref_part = msg.text.split()[1]
+            if ref_part.startswith('REF'):
+                user_states[user_id] = user_states.get(user_id, {})
+                user_states[user_id]["pending_referral"] = ref_part
         
         caption = """<b>🚀 Join Both Channels First!</b> 
 
@@ -1899,6 +1906,30 @@ def handle_callbacks(call):
         if data == "verify_join":
             # Check if user has joined BOTH channels
             if has_user_joined_channels(user_id):
+                # Recover referral code saved before join screen was shown
+                referred_by = None
+                pending_ref = user_states.get(user_id, {}).get("pending_referral")
+                if pending_ref and pending_ref.startswith('REF'):
+                    try:
+                        referrer_id = int(pending_ref[3:])
+                        referrer = users_col.find_one({"user_id": referrer_id})
+                        if referrer:
+                            referred_by = referrer_id
+                    except Exception:
+                        pass
+
+                # Register user in DB (safe to call multiple times — only inserts if new)
+                ensure_user_exists(
+                    user_id,
+                    call.from_user.first_name,
+                    call.from_user.username,
+                    referred_by
+                )
+
+                # Clear pending referral state
+                if user_id in user_states:
+                    user_states[user_id].pop("pending_referral", None)
+
                 try:
                     bot.delete_message(call.message.chat.id, call.message.message_id)
                 except:
