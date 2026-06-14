@@ -4165,13 +4165,14 @@ def show_recharge_methods(chat_id, message_id, user_id):
 # ---------------------------------------------------------------------
 
 def get_usdt_inr_rate() -> float:
-    """Fetch live USDT→INR rate from CoinGecko"""
+    """Fetch live USDT→INR rate from CoinGecko (shown as rate - 1 to users)"""
     try:
         r = requests.get(
             "https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=inr",
             timeout=8
         )
-        return float(r.json()["tether"]["inr"])
+        rate = float(r.json()["tether"]["inr"])
+        return max(0.0, rate - 1.0)
     except Exception:
         return 0.0
 
@@ -7057,6 +7058,70 @@ def cmd_history(msg):
     except Exception as e:
         logger.error(f"History cmd error: {e}")
 
+@bot.message_handler(commands=['myorders'])
+def cmd_myorders(msg):
+    user_id = msg.from_user.id
+    m = bot.send_message(msg.chat.id, "🛒 <b>Aapke Orders load ho rahe hain...</b>", parse_mode="HTML")
+    try:
+        orders = list(orders_col.find({"user_id": user_id}).sort("created_at", -1).limit(10))
+        if not orders:
+            bot.edit_message_text(
+                "🛒 <b>My Orders</b>\n\n<i>Abhi tak koi order nahi hai.\nPehle /buy karein!</i>",
+                msg.chat.id, m.message_id, parse_mode="HTML"
+            )
+            return
+
+        text = "🛒 <b>MY ORDERS (Last 10)</b>\n━━━━━━━━━━━━━━━━━━━━━\n\n"
+        markup = InlineKeyboardMarkup(row_width=1)
+
+        for i, order in enumerate(orders, 1):
+            phone    = order.get("phone_number", "N/A")
+            country  = order.get("country", "N/A")
+            price    = format_currency(order.get("price", 0))
+            status   = order.get("status", "unknown")
+            date_raw = order.get("created_at")
+            date_str = date_raw.strftime("%d %b %Y %H:%M") if date_raw else "N/A"
+            session_id = order.get("session_id", "")
+
+            flag = COUNTRY_FLAGS.get(country.lower(), "🌐")
+
+            # Status emoji
+            if status == "waiting_otp":
+                status_emoji = "⏳"
+            elif status == "completed":
+                status_emoji = "✅"
+            elif status == "expired":
+                status_emoji = "❌"
+            else:
+                status_emoji = "🔵"
+
+            text += (
+                f"<b>#{i}</b> {flag} <b>{country}</b>\n"
+                f"   📱 <code>{phone}</code>\n"
+                f"   💸 {price}  |  {status_emoji} {status.replace('_',' ').title()}\n"
+                f"   🕐 {date_str}\n\n"
+            )
+
+            # Add OTP button if session exists
+            if session_id:
+                markup.add(
+                    InlineKeyboardButton(
+                        f"🔢 Get OTP — #{i} {country} ({phone})",
+                        callback_data=f"get_otp_{session_id}"
+                    )
+                )
+
+        text += "━━━━━━━━━━━━━━━━━━━━━\n<i>Button dabao OTP lene ke liye</i>"
+        markup.add(InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu"))
+
+        bot.edit_message_text(text, msg.chat.id, m.message_id, parse_mode="HTML", reply_markup=markup)
+    except Exception as e:
+        logger.error(f"myorders cmd error: {e}")
+        try:
+            bot.edit_message_text(f"❌ Orders load nahi hue: {e}", msg.chat.id, m.message_id)
+        except:
+            pass
+
 @bot.message_handler(commands=['countries'])
 def cmd_countries(msg):
     frames = ["🌍 <b>Loading Countries...</b>", "🌍 <b>Fetching stock list...</b> ⏳"]
@@ -8049,6 +8114,7 @@ if __name__ == "__main__":
             BotCommand("daily",          "🎁 Daily bonus claim karo"),
             BotCommand("profile",        "👤 Apna profile dekhein"),
             BotCommand("history",        "📋 Transaction history"),
+            BotCommand("myorders",       "🛒 My purchased accounts + OTP"),
             BotCommand("rank",           "🎖️ Apni rank dekhein"),
             BotCommand("leaderboard",    "🏆 Top users ki list"),
             BotCommand("countries",      "🌍 Available countries & stock"),
