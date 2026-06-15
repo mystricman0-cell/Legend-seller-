@@ -3963,17 +3963,43 @@ def get_latest_otp(user_id, session_id, chat_id, callback_id):
             except:
                 pass
         
-        # Build OTP message with tap-to-copy format
+        # Build OTP message with tap-to-copy format + delivery status
         fa_password = two_step_password or (account.get("two_step_password", "") if account else "")
 
-        message = "✅ <b>Latest OTP Received!</b>\n\n"
-        message += f"📱 Phone: <code>{session_data.get('phone', 'N/A')}</code>\n"
-        message += f"🔢 OTP Code: <code>{otp_code}</code>\n"
+        # Time calculations (IST = UTC+5:30)
+        now_utc       = datetime.utcnow()
+        IST_OFFSET    = 5 * 60 + 30          # minutes
+        now_ist       = now_utc + timedelta(minutes=IST_OFFSET)
+        received_str  = now_ist.strftime("%I:%M:%S %p")   # e.g. 10:34:22 PM
+
+        # OTP validity: Telegram OTPs expire in ~5 min from send time.
+        # We use fetch time as proxy; show countdown so user knows urgency.
+        OTP_VALID_SECS = 5 * 60              # 5 minutes
+        elapsed_secs   = 0                   # just fetched — 0 s elapsed
+        remaining_secs = OTP_VALID_SECS - elapsed_secs
+        remaining_min  = remaining_secs // 60
+        remaining_sec  = remaining_secs % 60
+        expiry_ist     = now_ist + timedelta(seconds=remaining_secs)
+        expiry_str     = expiry_ist.strftime("%I:%M:%S %p")
+
+        # Progress bar for expiry (10 blocks)
+        filled   = max(0, round((remaining_secs / OTP_VALID_SECS) * 10))
+        bar      = "🟩" * filled + "🟥" * (10 - filled)
+
+        message  = "✅ <b>OTP Received!</b>\n"
+        message += "━━━━━━━━━━━━━━━━━━━━━\n\n"
+        message += f"📱 <b>Phone:</b> <code>{session_data.get('phone', 'N/A')}</code>\n"
+        message += f"🔢 <b>OTP Code:</b> <code>{otp_code}</code>\n"
         if fa_password:
-            message += f"🔐 2FA Password: <code>{fa_password}</code>\n"
-        message += f"\n⏰ Time: {datetime.utcnow().strftime('%H:%M:%S')}"
-        message += "\n\n<i>💡 Tap any value above to copy it instantly!</i>"
-        message += "\n\n📲 Open Telegram X → enter phone → enter OTP above."
+            message += f"🔐 <b>2FA Password:</b> <code>{fa_password}</code>\n"
+        message += f"\n━━━━━━━━━━━━━━━━━━━━━\n"
+        message += f"🕐 <b>Received at:</b> {received_str} IST\n"
+        message += f"⏳ <b>Expires at:</b>  {expiry_str} IST\n"
+        message += f"⏱ <b>Time left:</b>   <b>{remaining_min}m {remaining_sec:02d}s</b>\n"
+        message += f"{bar}\n"
+        message += f"━━━━━━━━━━━━━━━━━━━━━\n"
+        message += "<i>💡 Tap any value above to copy instantly!</i>\n"
+        message += "📲 Open Telegram X → enter phone → enter OTP above."
 
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
