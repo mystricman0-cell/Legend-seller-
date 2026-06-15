@@ -1397,23 +1397,30 @@ def add_referral_commission(referrer_id, recharge_amount, recharge_id):
 # UPDATED: CHECK BOTH CHANNELS MEMBERSHIP
 # ---------------------------------------------------------------------
 
+JOINED_STATUSES = {'member', 'administrator', 'creator', 'restricted'}
+
 def _check_single_channel(user_id, channel):
     """
     Returns True if the user has joined the channel, or if the channel
     cannot be verified (bad config / bot not admin). Returns False only
-    when the user is definitively NOT a member.
+    when the user is definitively NOT a member (status 'left' or 'kicked').
+    NOTE: 'restricted' is counted as joined — Telegram groups often restrict
+    new members (slow mode / posting limits) while they are valid members.
     """
     try:
         member = bot.get_chat_member(channel, user_id)
-        return member.status in ['member', 'administrator', 'creator']
+        joined = member.status in JOINED_STATUSES
+        if not joined:
+            logger.info(f"Channel check FAILED — user={user_id} channel={channel} status={member.status}")
+        return joined
     except Exception as e:
         err = str(e).lower()
-        # If the channel is misconfigured or bot has no access, skip the check
-        if 'chat not found' in err or 'user not found' in err or 'bot is not a member' in err:
-            logger.warning(f"Channel check skipped for {channel}: {e}")
+        if any(x in err for x in ('chat not found', 'user not found', 'bot is not a member',
+                                   'not enough rights', 'forbidden', 'have no rights')):
+            logger.warning(f"Channel check skipped for {channel} (no access/misconfigured): {e}")
             return True  # Don't punish users for admin misconfiguration
-        logger.error(f"Error checking channel membership for {channel}: {e}")
-        return True  # Fail open so buttons still work
+        logger.error(f"Error checking channel membership — user={user_id} channel={channel}: {e}")
+        return True  # Fail open so users aren't wrongly blocked
 
 def has_user_joined_channels(user_id):
     """Check if user has joined both mandatory channels"""
@@ -1428,13 +1435,14 @@ def get_missing_channels(user_id):
     for channel in [MUST_JOIN_CHANNEL_1, MUST_JOIN_CHANNEL_2]:
         try:
             member = bot.get_chat_member(channel, user_id)
-            if member.status not in ['member', 'administrator', 'creator']:
+            if member.status not in JOINED_STATUSES:
                 missing.append(channel)
         except Exception as e:
             err = str(e).lower()
-            if 'chat not found' in err or 'bot is not a member' in err:
-                # Channel misconfigured — don't show it as missing
+            if any(x in err for x in ('chat not found', 'bot is not a member',
+                                       'not enough rights', 'forbidden', 'have no rights')):
                 logger.warning(f"Skipping missing-channel display for {channel}: {e}")
+                # Don't add to missing — bot can't check, so don't block user
             else:
                 missing.append(channel)
     return missing
