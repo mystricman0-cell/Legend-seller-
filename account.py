@@ -480,42 +480,70 @@ async def otp_searcher(session_string, api_id=37751241, api_hash="2e90f273e745d4
         otp_time = None
         message_count = 0
         
+        # OTP pattern: 5 OR 6 digit standalone numbers (Telegram sends both)
+        OTP_PATTERN = r'\b(\d{5,6})\b'
+
+        # Keywords that suggest an OTP message — deliberately broad to cover
+        # all languages (English, Arabic, Sinhala, Hindi, etc.)
+        # We also always scan 777000 where Telegram ONLY sends login codes.
+        OTP_KEYWORDS = [
+            "code", "login", "verification", "verify", "otp", "password",
+            "رمز", "تأكيد", "كلمة",     # Arabic
+            "کد", "تایید",               # Farsi
+            "код", "войти",              # Russian
+            "कोड", "सत्यापन",            # Hindi
+            "කේතය", "සත්‍යාපන",         # Sinhala
+        ]
+
+        def _extract_otp_from_text(text):
+            """Return the first 5-or-6-digit code found in text, or None."""
+            if not text:
+                return None
+            matches = re.findall(OTP_PATTERN, text)
+            return matches[0] if matches else None
+
+        def _has_otp_keyword(text):
+            """True when the message looks like an OTP / login message."""
+            if not text:
+                return False
+            tl = text.lower()
+            return any(kw in tl for kw in OTP_KEYWORDS)
+
         try:
-            # Get last 50 messages from "Telegram" chat
+            # ── 1. Search "Telegram" service chat ─────────────────────────
             async for message in client.get_chat_history("Telegram", limit=50):
                 message_count += 1
-                if message.text and any(keyword in message.text.lower() for keyword in ["code", "login", "verification", "رمز", "تأكيد"]):
-                    # Pattern for OTP codes
-                    pattern = r'\b\d{5}\b'  # 5 digit codes
-                    matches = re.findall(pattern, message.text)
-                    for match in matches:
-                        # Always take the first match (most recent due to chat history order)
-                        if message.date:
-                            current_time = message.date.timestamp()
-                            # Always update if we find any OTP (take the most recent)
-                            if latest_otp is None or current_time > otp_time:
-                                otp_time = current_time
-                                latest_otp = match
-                                logger.info(f"Found OTP in message: {match} at {message.date}")
-                            break  # First match is enough
-                    # Don't break - continue searching for more recent messages
-                    # But if we found one, we'll keep looking for newer ones
-                    
-            # If not found in Telegram chat, check 777000
+                txt = message.text or ""
+                # "Telegram" chat only sends login codes; still apply keyword
+                # filter but fall back to raw digit scan so no OTP is missed
+                if txt:
+                    otp_candidate = None
+                    if _has_otp_keyword(txt):
+                        otp_candidate = _extract_otp_from_text(txt)
+                    else:
+                        # No recognised keyword — scan anyway (handles new langs)
+                        otp_candidate = _extract_otp_from_text(txt)
+
+                    if otp_candidate and message.date:
+                        current_time = message.date.timestamp()
+                        if latest_otp is None or current_time > otp_time:
+                            otp_time     = current_time
+                            latest_otp   = otp_candidate
+                            logger.info(f"Found OTP in Telegram chat: {otp_candidate} at {message.date}")
+
+            # ── 2. Fallback: Telegram service user 777000 ─────────────────
             if not latest_otp:
                 async for message in client.get_chat_history(777000, limit=50):
-                    if message.text and any(keyword in message.text.lower() for keyword in ["code", "login", "verification"]):
-                        pattern = r'\b\d{5}\b'
-                        matches = re.findall(pattern, message.text)
-                        for match in matches:
-                            if message.date:
-                                current_time = message.date.timestamp()
-                                if latest_otp is None or current_time > otp_time:
-                                    otp_time = current_time
-                                    latest_otp = match
-                                    logger.info(f"Found OTP from 777000: {match} at {message.date}")
-                                break
-                        # Don't break - keep searching
+                    txt = message.text or ""
+                    if txt:
+                        otp_candidate = _extract_otp_from_text(txt)
+                        if otp_candidate and message.date:
+                            current_time = message.date.timestamp()
+                            if latest_otp is None or current_time > otp_time:
+                                otp_time   = current_time
+                                latest_otp = otp_candidate
+                                logger.info(f"Found OTP from 777000: {otp_candidate} at {message.date}")
+
         except Exception as e:
             logger.error(f"Error searching OTP in chat: {e}")
         

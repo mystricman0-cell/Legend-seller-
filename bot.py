@@ -6610,7 +6610,7 @@ def process_purchase(user_id, account_id, chat_id, message_id, callback_id):
             "⏳ OTP valid for <b>30 minutes</b>\n\n"
             "━━━━━━━━━━━━━━━━━━━━━\n"
             "💬 Join our community for updates:\n"
-            "<a href='https://t.me/+IV9iBTi_CSBlODU8'>👥 Legend OTP Community</a>"
+            "<a href='https://t.me/+IV9iBTi_CSBlODU8'>👥 DRS OTP Community</a>"
         )
 
         get_otp_markup = InlineKeyboardMarkup(row_width=2)
@@ -6619,7 +6619,7 @@ def process_purchase(user_id, account_id, chat_id, message_id, callback_id):
             InlineKeyboardButton("🏠 Home", callback_data="back_to_menu")
         )
         get_otp_markup.add(
-            InlineKeyboardButton("👥 Join Community", url="https://t.me/+IV9iBTi_CSBlODU8")
+            InlineKeyboardButton("👥 DRS Community", url="https://t.me/+IV9iBTi_CSBlODU8")
         )
 
         # Personal log — full detail
