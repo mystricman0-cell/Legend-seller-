@@ -8444,16 +8444,65 @@ if __name__ == "__main__":
     logger.info(f"🚀 Starting Flask webhook server on port {WEBHOOK_PORT}...")
     import socket as _sock
     import socketserver as _ss
+    import subprocess as _sub
 
-    # Force SO_REUSEADDR so port is freed immediately on restart
+    def _free_port(port):
+        """Kill any process holding the given port using Python subprocess."""
+        try:
+            # Try ss (socket statistics — always available on Linux)
+            result = _sub.run(
+                ["ss", "-tlnp", f"sport = :{port}"],
+                capture_output=True, text=True, timeout=5
+            )
+            for line in result.stdout.splitlines():
+                if f":{port}" in line and "pid=" in line:
+                    pid = line.split("pid=")[1].split(",")[0]
+                    try:
+                        _sub.run(["kill", "-9", pid], timeout=3)
+                        logger.info(f"Killed PID {pid} holding port {port}")
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        # Also try via /proc/net/tcp (pure Python fallback)
+        try:
+            import struct
+            hex_port = format(port, '04X')
+            with open("/proc/net/tcp") as f:
+                for line in f.readlines()[1:]:
+                    parts = line.split()
+                    if len(parts) > 9:
+                        local = parts[1]
+                        lport = int(local.split(":")[1], 16)
+                        if lport == port:
+                            inode = parts[9]
+                            # Find PID owning this inode
+                            import os as _o
+                            for pid in _o.listdir("/proc"):
+                                if not pid.isdigit():
+                                    continue
+                                try:
+                                    fd_dir = f"/proc/{pid}/fd"
+                                    for fd in _o.listdir(fd_dir):
+                                        lnk = _o.readlink(f"{fd_dir}/{fd}")
+                                        if f"socket:[{inode}]" in lnk:
+                                            _sub.run(["kill", "-9", pid], timeout=3)
+                                            logger.info(f"Killed PID {pid} (inode {inode}) on port {port}")
+                                except Exception:
+                                    pass
+        except Exception:
+            pass
+        time.sleep(1)
+
+    # Force SO_REUSEADDR + SO_REUSEPORT so port is freed immediately on restart
     _ss.TCPServer.allow_reuse_address = True
 
     try:
         flask_app.run(host="0.0.0.0", port=WEBHOOK_PORT, debug=False,
                       use_reloader=False, threaded=True)
-    except OSError:
-        import os as _os
-        _os.system(f"fuser -k {WEBHOOK_PORT}/tcp 2>/dev/null || true; sleep 2")
+    except OSError as _port_err:
+        logger.warning(f"Port {WEBHOOK_PORT} busy ({_port_err}), force-freeing...")
+        _free_port(WEBHOOK_PORT)
         flask_app.run(host="0.0.0.0", port=WEBHOOK_PORT, debug=False,
                       use_reloader=False, threaded=True)
 
