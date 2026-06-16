@@ -8285,7 +8285,14 @@ flask_app = Flask(__name__)
 
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_PORT = int(os.getenv("PORT", 5000))
-REPLIT_DOMAIN = os.getenv("REPLIT_DEV_DOMAIN", "")
+
+# Auto-detect platform domain — supports Replit, Railway, and custom domain
+REPLIT_DOMAIN  = os.getenv("REPLIT_DEV_DOMAIN", "")
+RAILWAY_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "") or os.getenv("RAILWAY_STATIC_URL", "")
+CUSTOM_DOMAIN  = os.getenv("WEBHOOK_DOMAIN", "")   # set this in Railway vars if needed
+
+# Pick best available domain (custom > Railway > Replit)
+ACTIVE_DOMAIN = CUSTOM_DOMAIN or RAILWAY_DOMAIN or REPLIT_DOMAIN
 
 @flask_app.route(WEBHOOK_PATH, methods=["POST"])
 def telegram_webhook():
@@ -8422,9 +8429,11 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"❌ BotFather commands error: {e}")
 
-    # Set webhook — clears any other polling/webhook session automatically
-    if REPLIT_DOMAIN:
-        WEBHOOK_URL = f"https://{REPLIT_DOMAIN}{WEBHOOK_PATH}"
+    # Set webhook — auto-detects Railway / Replit / custom domain
+    if ACTIVE_DOMAIN:
+        platform = "Railway" if RAILWAY_DOMAIN else ("Custom" if CUSTOM_DOMAIN else "Replit")
+        WEBHOOK_URL = f"https://{ACTIVE_DOMAIN}{WEBHOOK_PATH}"
+        logger.info(f"🌐 Platform: {platform} | Domain: {ACTIVE_DOMAIN}")
         try:
             bot.remove_webhook()
             time.sleep(1)
@@ -8432,8 +8441,15 @@ if __name__ == "__main__":
             logger.info(f"✅ Webhook set: {WEBHOOK_URL}")
         except Exception as e:
             logger.error(f"❌ Failed to set webhook: {e}")
+            logger.info("⚙️ Falling back to polling mode...")
+            while True:
+                try:
+                    bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
+                except Exception as pe:
+                    logger.error(f"Polling error: {pe}")
+                    time.sleep(15)
     else:
-        logger.warning("⚠️ REPLIT_DEV_DOMAIN not set, falling back to polling")
+        logger.info("⚙️ No domain set — running in polling mode (works everywhere)")
         while True:
             try:
                 bot.infinity_polling(timeout=60, long_polling_timeout=60, skip_pending=True)
