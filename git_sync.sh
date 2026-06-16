@@ -6,6 +6,11 @@ if [ -z "$GITHUB_TOKEN" ]; then
     exit 1
 fi
 
+# Disable ALL interactive git prompts — prevents hang on credential input
+export GIT_TERMINAL_PROMPT=0
+export GIT_ASKPASS=true
+export GIT_SSH_COMMAND="ssh -o BatchMode=yes"
+
 # ── Wait for any Replit-owned git locks to clear (up to 30s) ──────────
 LOCK_WAIT=0
 while [ -f .git/index.lock ] || [ -f .git/config.lock ]; do
@@ -22,8 +27,8 @@ done
 rm -f .git/index.lock .git/config.lock .git/HEAD.lock \
        .git/refs/heads/main.lock .git/packed-refs.lock 2>/dev/null
 
-git config --global user.email "bot@legendaryotp.replit"
-git config --global user.name "Legendary OTP Bot"
+git config --global user.email "bot@drs-otp.replit"
+git config --global user.name "DRS OTP Bot"
 git config --global credential.helper ""
 git config --global core.askPass ""
 
@@ -53,7 +58,7 @@ fi
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 git commit -m "Auto-sync: $TIMESTAMP"
 
-if git push origin main 2>&1; then
+if GIT_TERMINAL_PROMPT=0 git push origin main 2>&1; then
     echo "[git_sync] ✅ Pushed to GitHub at $TIMESTAMP"
     exit 0
 fi
